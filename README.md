@@ -1,75 +1,74 @@
-# ApexCut 🎬
+# ApexCut
 
 **Professional Photo & Video Editor**  
-Inspired by **CapCut** + **Adobe Premiere Pro**
+Inspired by CapCut + Adobe Premiere Pro
 
-Multi-track timeline • Color correction • Effects & Transitions • Keyframes • Text Graphics • FFmpeg pipeline
+**by JagX + JRILICENSE**
 
-Built with **Flutter** — runs on **Android, iOS, Windows, and macOS**.
+Multi-track timeline • Color correction • Effects & Transitions • Keyframes • Text Graphics • Templates • Project Save/Load • FFmpeg pipeline
 
----
-
-## Features Implemented
-
-### 1. Multi-Track Timeline (Premiere-style)
-- Visual multi-track timeline widget
-- Video + Audio tracks (V1, A1...)
-- Playhead, time ruler, clip blocks
-- Seek by dragging / clicking
-
-### 2. Color Correction Panel
-- Exposure, Contrast, Highlights, Shadows
-- Saturation, Vibrance
-- Temperature & Tint
-- Reset functionality (Lumetri-inspired)
-
-### 3. Effects & Transitions Library
-- Cross Dissolve, Fade to Black/White, Wipes, Zoom, Slide
-- Blur, Sharpen, Vignette, Film Grain, Glow, Glitch, Mirror
-- Color looks (B&W, Sepia, Teal & Orange, Vintage)
-
-### 4. Keyframe Animation System
-- Property keyframes: Position, Scale, Rotation, Opacity, Volume, Speed
-- Easing types (Linear, Ease In/Out, Bezier)
-- Add / delete keyframes per property
-
-### 5. Text & Essential Graphics Tools
-- Add text layers
-- Font size, scale, rotation
-- Shadow & Bold toggles
-- Animation presets (Fade In, Slide Up, Typewriter, Pop)
-
-### 6. FFmpeg Service (Ready for integration)
-- Trim, Speed change, Color grade, Blur
-- Transitions (xfade), Text overlay (drawtext), Scale
-- Full export pipeline placeholder
+Built with Flutter — Android, iOS, Windows, macOS.
 
 ---
 
-## Multi-Platform Support
+## Branding
 
-| Platform   | Status          | Build Command                     |
-|------------|-----------------|-----------------------------------|
-| Android    | Fully supported | `flutter build apk --release`     |
-| iOS        | Fully supported | `flutter build ios --release`     |
-| Windows    | Fully supported | `flutter build windows --release` |
-| macOS      | Fully supported | `flutter build macos --release`   |
+- App Name: **ApexCut**
+- By: **JagX + JRILICENSE**
+- Logo: Official JX | JR crest (silver & gold tigers)
 
 ---
 
-## Automated Builds (GitHub Actions)
+## Working Features
 
-A complete CI workflow is included at `.github/workflows/build.yml`.
+### Core Editing
+1. Multi-track visual timeline (V1 / A1)
+2. Playhead + time ruler + seek
+3. Clip selection on timeline
+4. Video playback with scrubbing
+5. Photo editor with live preview
+6. Color Correction panel (Exposure, Contrast, Highlights, Shadows, Saturation, Vibrance, Temperature, Tint)
+7. Effects & Transitions library (20+ effects)
+8. Keyframe system (Scale, Rotation, Opacity, Volume, Speed, Position)
+9. Text layers + Essential Graphics style tools
+10. Animation presets for text (Fade, Slide, Typewriter, Pop)
+11. Project Save / Load (JSON local storage)
+12. Recent projects list
+13. Aspect ratio presets (9:16, 1:1, 16:9, 4:5)
+14. Export button ready for FFmpeg pipeline
+15. Gallery + Camera import
 
-It automatically builds:
-- Android APKs (split per ABI)
-- iOS (no-codesign)
-- Windows desktop
-- macOS desktop
+### Templates
+16. Ready-made templates for Reels / TikTok / Shorts / Stories
+17. One-tap apply template structure
 
-**Trigger:** Push to `main` or manual `workflow_dispatch`.
+### Additional Working Tools
+18. Speed control UI
+19. Volume control per clip
+20. Reset color grade
+21. Add / delete keyframes
+22. Add text layer at current playhead
+23. Bold + Shadow toggles for text
+24. Font size / scale / rotation controls
+25. Effect application feedback
+26. Track mute / lock model support
+27. Dark professional theme
+28. Responsive tool panels
+29. Multi-platform build workflow (GitHub Actions)
+30. Clean architecture ready for expansion
 
-Artifacts are uploaded and available for download from the Actions tab.
+---
+
+## Planned / Next Integration (FFmpeg)
+
+- Real trim / split / ripple edit
+- Real color grade application via FFmpeg
+- Real transitions (xfade)
+- Real text burn-in
+- Full multi-clip export
+- Audio mixing
+
+Uncomment `ffmpeg_kit_flutter_min_gpl` in `pubspec.yaml` to activate.
 
 ---
 
@@ -82,15 +81,7 @@ flutter pub get
 flutter run
 ```
 
-### Enable FFmpeg (recommended)
-
-In `pubspec.yaml` uncomment:
-```yaml
-ffmpeg_kit_flutter_min_gpl: ^6.0.3
-```
-Then run `flutter pub get`.
-
-### Build for all platforms locally
+### Build
 
 ```bash
 # Android
@@ -100,34 +91,14 @@ flutter build apk --release --split-per-abi
 flutter build ios --release
 
 # Windows
-flutter config --enable-windows-desktop
 flutter build windows --release
 
 # macOS
-flutter config --enable-macos-desktop
 flutter build macos --release
 ```
 
----
-
-## Project Structure
-
-```
-lib/
-├── features/
-│   ├── video_editor/     # Main editor with integrated panels
-│   ├── color/            # Color correction panel
-│   ├── effects/          # Effects & transitions library
-│   ├── keyframes/        # Keyframe editor
-│   ├── graphics/         # Text tools (Essential Graphics style)
-│   ├── photo_editor/
-│   └── gallery/
-├── shared/
-│   ├── models/           # Project, Track, Clip, Effect, Keyframe, TextLayer
-│   └── widgets/timeline/ # Multi-track timeline
-└── core/services/        # FFmpeg service
-```
+GitHub Actions automatically builds all platforms on push to main.
 
 ---
 
-**ApexCut** — Professional editing power on every platform.
+**ApexCut** by **JagX + JRILICENSE**
