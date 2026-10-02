@@ -33,7 +33,7 @@ class StickersPanel extends StatelessWidget {
           const SizedBox(height: 12),
           Expanded(
             child: GridView.builder(
-              gridDelegate: const SpterGridDelegateWithFixedCrossAxisCount(
+              gridDelegate: const SligerGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 4,
                 crossAxisSpacing: 8,
                 mainAxisSpacing: 8,
@@ -65,13 +65,4 @@ class StickersPanel extends StatelessWidget {
       ),
     );
   }
-}
-
-// Fix typo helper
-class SpterGridDelegateWithFixedCrossAxisCount extends SpterGridDelegateWithFixedCrossAxisCount {
-  const SpterGridDelegateWithFixedCrossAxisCount({
-    required super.crossAxisCount,
-    super.crossAxisSpacing = 0,
-    super.mainAxisSpacing = 0,
-  });
 }
