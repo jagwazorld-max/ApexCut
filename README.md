@@ -5,61 +5,55 @@ by **JagX + JRILICENSE**
 
 ---
 
-## Latest Features Added (15+)
+## New Features (20+)
 
-### Cutout & Replace
-1. Auto Cutout (background removal style)
-2. Manual Cutout brush mode
-3. Invert Mask
-4. Feather edges
-5. Replace Background
-6. Replace Object
-7. Add Overlay layer
-8. Picture-in-Picture (PiP)
+### Voice & Audio
+1. **Text-to-Speech (TTS)** – write any text and generate natural speech
+2. Multiple voices (Male Deep, Female Soft, Energetic, Narrator, Child, Robot)
+3. Adjustable rate, pitch, volume
+4. Music library (8 tracks)
+5. Sound Effects (SFX) library
+6. Full Audio panel with tabs (Voiceover / Music / SFX)
 
-### Transform & Layers
-9. Crop with aspect ratios (Free, 1:1, 4:5, 9:16, 16:9...)
-10. Rotate Left / Right (90°)
-11. Flip Horizontal / Vertical
-12. Layer system (add / delete / reorder ready)
-13. Undo / Redo stack
+### Background & Mask
+7. Background Removal tools
+8. Real Mask Painting (Paint / Erase brush)
+9. Brush size control
+10. Clear & Apply Mask
+11. Invert Mask + Feather
 
-### Graphics & Export
-14. Stickers & Shapes panel
-15. Export quality selector (1080p / 720p / Original)
-16. Timeline Markers model
-17. More templates (Travel, Food, Fitness, Beauty...)
-
----
-
-## Full Feature List
-
-- Multi-track timeline
-- Speed control (0.25x–4x)
-- Volume + Mute
-- Color Correction
-- Effects & Transitions
-- Keyframes
-- Text tools + animations
-- Project Save/Load
-- Templates (12+)
-- Cutout / Replace tools
-- Crop / Rotate / Flip
-- Layers
-- Undo/Redo
-- Stickers
-- Export quality options
+### Advanced Editing
+12. Better Picture-in-Picture (PiP) positioning support
+13. Sticker placement on canvas
+14. Layer system improvements
+15. Undo / Redo
+16. Crop + Rotate + Flip
+17. Replace Background / Object
+18. Overlay layers
+19. Export quality options
+20. Improved multi-platform workflows (auto-create platform folders)
 
 ---
 
-## App Icon
+## How to use TTS
 
-Place the official ApexCut icon as `assets/icons/app_icon.png` then run:
+1. Open a video project
+2. Tap **Audio** tool
+3. Go to **Voiceover** tab
+4. Type your script
+5. Choose a voice
+6. Tap **Generate & Play**
 
-```bash
-flutter pub get
-flutter pub run flutter_launcher_icons
-```
+Perfect for animations when you don’t want to record your own voice.
+
+---
+
+## Workflows Fixed
+
+The GitHub Actions now:
+- Auto-create `android/`, `ios/`, `windows/`, `macos/` folders if missing
+- Continue even if one platform fails
+- Upload artifacts when available
 
 ---
 

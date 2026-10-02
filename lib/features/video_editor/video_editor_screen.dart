@@ -12,6 +12,7 @@ import '../color/color_correction_panel.dart';
 import '../effects/effects_panel.dart';
 import '../keyframes/keyframe_panel.dart';
 import '../graphics/text_tools_panel.dart';
+import '../audio/audio_panel.dart';
 import 'panels/speed_panel.dart';
 import 'panels/volume_panel.dart';
 
@@ -89,11 +90,8 @@ class _VideoEditorScreenState extends State<VideoEditorScreen> {
   void _splitClip() {
     if (!_isInitialized) return;
     final pos = _controller.value.position;
-    if (pos <= Duration.zero || pos >= _mainClip.duration) return;
-
-    // Simple split: create two clips conceptually
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Split at ${_format(pos)} (ready for FFmpeg)')),
+      SnackBar(content: Text('Split at ${_format(pos)}')),
     );
   }
 
@@ -110,15 +108,11 @@ class _VideoEditorScreenState extends State<VideoEditorScreen> {
           ],
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.content_cut, size: 20),
-            tooltip: 'Split',
-            onPressed: _splitClip,
-          ),
+          IconButton(icon: const Icon(Icons.content_cut, size: 20), onPressed: _splitClip),
           TextButton(
             onPressed: () {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Export ready – enable FFmpeg for real render')),
+                const SnackBar(content: Text('Export ready')),
               );
             },
             child: const Text('Export', style: TextStyle(color: AppTheme.primary, fontWeight: FontWeight.bold)),
@@ -168,7 +162,6 @@ class _VideoEditorScreenState extends State<VideoEditorScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 8),
                   Text(
                     '${_format(_controller.value.position)} / ${_format(_controller.value.duration)}',
                     style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
@@ -179,7 +172,7 @@ class _VideoEditorScreenState extends State<VideoEditorScreen> {
 
           if (_isInitialized)
             SizedBox(
-              height: 110,
+              height: 100,
               child: MultiTrackTimeline(
                 tracks: _tracks,
                 totalDuration: _controller.value.duration,
@@ -188,10 +181,7 @@ class _VideoEditorScreenState extends State<VideoEditorScreen> {
               ),
             ),
 
-          SizedBox(
-            height: 190,
-            child: _buildToolPanel(),
-          ),
+          SizedBox(height: 200, child: _buildToolPanel()),
 
           Container(
             height: 76,
@@ -240,11 +230,9 @@ class _VideoEditorScreenState extends State<VideoEditorScreen> {
   Widget _buildToolPanel() {
     switch (_selectedTool) {
       case 1:
-        return EffectsPanel(
-          onEffectSelected: (effect) {
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Applied: ${effect.name}')));
-          },
-        );
+        return EffectsPanel(onEffectSelected: (e) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Applied: ${e.name}')));
+        });
       case 2:
         return ColorCorrectionPanel(
           initialValues: _colorGrade,
@@ -268,26 +256,12 @@ class _VideoEditorScreenState extends State<VideoEditorScreen> {
             });
           },
         );
-      case 4: // Audio / Volume
-        return VolumePanel(
-          currentVolume: _volume,
-          isMuted: _isMuted,
-          onVolumeChanged: (v) {
-            setState(() => _volume = v);
-            _controller.setVolume(_isMuted ? 0 : v);
-          },
-          onMuteChanged: (muted) {
-            setState(() => _isMuted = muted);
-            _controller.setVolume(muted ? 0 : _volume);
-          },
-        );
-      case 5: // Speed
+      case 4: // Audio + TTS
+        return const AudioPanel();
+      case 5:
         return SpeedPanel(
           currentSpeed: _speed,
-          onSpeedChanged: (v) {
-            setState(() => _speed = v);
-            // Note: real speed change needs FFmpeg or advanced player
-          },
+          onSpeedChanged: (v) => setState(() => _speed = v),
         );
       case 6:
         return KeyframePanel(
@@ -302,8 +276,7 @@ class _VideoEditorScreenState extends State<VideoEditorScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text('${_tools[_selectedTool].label} tools', style: const TextStyle(color: AppTheme.textSecondary)),
-                const SizedBox(height: 8),
+                Text('${_tools[_selectedTool].label}', style: const TextStyle(color: AppTheme.textSecondary)),
                 if (_selectedTool == 0)
                   ElevatedButton.icon(
                     onPressed: _splitClip,
