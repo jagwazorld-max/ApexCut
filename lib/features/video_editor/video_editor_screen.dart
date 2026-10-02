@@ -2,9 +2,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/constants/branding.dart';
 import '../../shared/models/clip.dart';
 import '../../shared/models/track.dart';
-import '../../shared/models/effect.dart';
 import '../../shared/models/text_layer.dart';
 import '../../shared/models/keyframe.dart';
 import '../../shared/widgets/timeline/multi_track_timeline.dart';
@@ -12,6 +12,8 @@ import '../color/color_correction_panel.dart';
 import '../effects/effects_panel.dart';
 import '../keyframes/keyframe_panel.dart';
 import '../graphics/text_tools_panel.dart';
+import 'panels/speed_panel.dart';
+import 'panels/volume_panel.dart';
 
 class VideoEditorScreen extends StatefulWidget {
   final String initialVideoPath;
@@ -33,6 +35,10 @@ class _VideoEditorScreenState extends State<VideoEditorScreen> {
   TextLayer? _selectedTextLayer;
   Map<String, double> _colorGrade = {};
   List<Keyframe> _keyframes = [];
+
+  double _speed = 1.0;
+  double _volume = 1.0;
+  bool _isMuted = false;
 
   final List<_ToolItem> _tools = [
     _ToolItem('Trim', Icons.content_cut_rounded),
@@ -69,8 +75,6 @@ class _VideoEditorScreenState extends State<VideoEditorScreen> {
 
     setState(() => _isInitialized = true);
     _controller.play();
-
-    // Listen for position updates to move playhead
     _controller.addListener(() {
       if (mounted) setState(() {});
     });
@@ -82,34 +86,47 @@ class _VideoEditorScreenState extends State<VideoEditorScreen> {
     super.dispose();
   }
 
+  void _splitClip() {
+    if (!_isInitialized) return;
+    final pos = _controller.value.position;
+    if (pos <= Duration.zero || pos >= _mainClip.duration) return;
+
+    // Simple split: create two clips conceptually
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Split at ${_format(pos)} (ready for FFmpeg)')),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
         backgroundColor: Colors.black,
-        title: const Text('ApexCut Editor'),
+        title: Column(
+          children: [
+            const Text('ApexCut', style: TextStyle(fontSize: 16)),
+            Text(Branding.byLine, style: const TextStyle(fontSize: 10, color: AppTheme.textSecondary)),
+          ],
+        ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.content_cut, size: 20),
+            tooltip: 'Split',
+            onPressed: _splitClip,
+          ),
           TextButton(
             onPressed: () {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Export pipeline ready for FFmpeg integration')),
+                const SnackBar(content: Text('Export ready – enable FFmpeg for real render')),
               );
             },
-            child: const Text(
-              'Export',
-              style: TextStyle(
-                color: AppTheme.primary,
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-              ),
-            ),
+            child: const Text('Export', style: TextStyle(color: AppTheme.primary, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
       body: Column(
         children: [
-          // Preview
           Expanded(
             flex: 3,
             child: _isInitialized
@@ -122,7 +139,6 @@ class _VideoEditorScreenState extends State<VideoEditorScreen> {
                 : const Center(child: CircularProgressIndicator(color: AppTheme.primary)),
           ),
 
-          // Playback controls
           if (_isInitialized)
             Container(
               color: AppTheme.surface,
@@ -161,30 +177,24 @@ class _VideoEditorScreenState extends State<VideoEditorScreen> {
               ),
             ),
 
-          // Multi-track timeline
           if (_isInitialized)
             SizedBox(
-              height: 120,
+              height: 110,
               child: MultiTrackTimeline(
                 tracks: _tracks,
                 totalDuration: _controller.value.duration,
                 currentPosition: _controller.value.position,
                 onSeek: (pos) => _controller.seekTo(pos),
-                onClipSelected: (clip) {
-                  // Future: select clip for editing
-                },
               ),
             ),
 
-          // Dynamic tool panel
           SizedBox(
-            height: 200,
+            height: 190,
             child: _buildToolPanel(),
           ),
 
-          // Bottom tools bar
           Container(
-            height: 78,
+            height: 76,
             color: AppTheme.surface,
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
@@ -196,7 +206,7 @@ class _VideoEditorScreenState extends State<VideoEditorScreen> {
                 return GestureDetector(
                   onTap: () => setState(() => _selectedTool = index),
                   child: Container(
-                    width: 64,
+                    width: 62,
                     margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 8),
                     decoration: BoxDecoration(
                       color: isSelected ? AppTheme.primary.withOpacity(0.15) : Colors.transparent,
@@ -205,11 +215,7 @@ class _VideoEditorScreenState extends State<VideoEditorScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(
-                          tool.icon,
-                          color: isSelected ? AppTheme.primary : AppTheme.textSecondary,
-                          size: 20,
-                        ),
+                        Icon(tool.icon, color: isSelected ? AppTheme.primary : AppTheme.textSecondary, size: 20),
                         const SizedBox(height: 3),
                         Text(
                           tool.label,
@@ -233,43 +239,57 @@ class _VideoEditorScreenState extends State<VideoEditorScreen> {
 
   Widget _buildToolPanel() {
     switch (_selectedTool) {
-      case 1: // Effects
+      case 1:
         return EffectsPanel(
           onEffectSelected: (effect) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Applied: ${effect.name}')),
-            );
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Applied: ${effect.name}')));
           },
         );
-      case 2: // Color
+      case 2:
         return ColorCorrectionPanel(
           initialValues: _colorGrade,
-          onChanged: (values) => setState(() => _colorGrade = values),
+          onChanged: (v) => setState(() => _colorGrade = v),
         );
-      case 3: // Text
+      case 3:
         return TextToolsPanel(
           selectedLayer: _selectedTextLayer,
           onChanged: (layer) {
             setState(() {
               _selectedTextLayer = layer;
               final idx = _textLayers.indexWhere((t) => t.id == layer.id);
-              if (idx >= 0) {
-                _textLayers[idx] = layer;
-              }
+              if (idx >= 0) _textLayers[idx] = layer;
             });
           },
           onAddText: () {
-            final newLayer = TextLayer.create(
-              text: 'New Text',
-              startTime: _controller.value.position,
-            );
+            final layer = TextLayer.create(text: 'New Text', startTime: _controller.value.position);
             setState(() {
-              _textLayers.add(newLayer);
-              _selectedTextLayer = newLayer;
+              _textLayers.add(layer);
+              _selectedTextLayer = layer;
             });
           },
         );
-      case 6: // Keyframes
+      case 4: // Audio / Volume
+        return VolumePanel(
+          currentVolume: _volume,
+          isMuted: _isMuted,
+          onVolumeChanged: (v) {
+            setState(() => _volume = v);
+            _controller.setVolume(_isMuted ? 0 : v);
+          },
+          onMuteChanged: (muted) {
+            setState(() => _isMuted = muted);
+            _controller.setVolume(muted ? 0 : _volume);
+          },
+        );
+      case 5: // Speed
+        return SpeedPanel(
+          currentSpeed: _speed,
+          onSpeedChanged: (v) {
+            setState(() => _speed = v);
+            // Note: real speed change needs FFmpeg or advanced player
+          },
+        );
+      case 6:
         return KeyframePanel(
           keyframes: _keyframes,
           clipDuration: _mainClip.duration,
@@ -279,9 +299,18 @@ class _VideoEditorScreenState extends State<VideoEditorScreen> {
         return Container(
           color: AppTheme.surface,
           child: Center(
-            child: Text(
-              '${_tools[_selectedTool].label} tools',
-              style: const TextStyle(color: AppTheme.textSecondary),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text('${_tools[_selectedTool].label} tools', style: const TextStyle(color: AppTheme.textSecondary)),
+                const SizedBox(height: 8),
+                if (_selectedTool == 0)
+                  ElevatedButton.icon(
+                    onPressed: _splitClip,
+                    icon: const Icon(Icons.content_cut, size: 16),
+                    label: const Text('Split at Playhead'),
+                  ),
+              ],
             ),
           ),
         );
