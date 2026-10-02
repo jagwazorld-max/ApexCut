@@ -3,68 +3,62 @@
 **Professional Photo & Video Editor**  
 by **JagX + JRILICENSE**
 
-Inspired by CapCut + Adobe Premiere Pro
+---
+
+## Latest Features Added (15+)
+
+### Cutout & Replace
+1. Auto Cutout (background removal style)
+2. Manual Cutout brush mode
+3. Invert Mask
+4. Feather edges
+5. Replace Background
+6. Replace Object
+7. Add Overlay layer
+8. Picture-in-Picture (PiP)
+
+### Transform & Layers
+9. Crop with aspect ratios (Free, 1:1, 4:5, 9:16, 16:9...)
+10. Rotate Left / Right (90°)
+11. Flip Horizontal / Vertical
+12. Layer system (add / delete / reorder ready)
+13. Undo / Redo stack
+
+### Graphics & Export
+14. Stickers & Shapes panel
+15. Export quality selector (1080p / 720p / Original)
+16. Timeline Markers model
+17. More templates (Travel, Food, Fitness, Beauty...)
+
+---
+
+## Full Feature List
+
+- Multi-track timeline
+- Speed control (0.25x–4x)
+- Volume + Mute
+- Color Correction
+- Effects & Transitions
+- Keyframes
+- Text tools + animations
+- Project Save/Load
+- Templates (12+)
+- Cutout / Replace tools
+- Crop / Rotate / Flip
+- Layers
+- Undo/Redo
+- Stickers
+- Export quality options
 
 ---
 
 ## App Icon
 
-Official ApexCut icon is ready.  
-Place it as `assets/icons/app_icon.png` and run:
+Place the official ApexCut icon as `assets/icons/app_icon.png` then run:
 
 ```bash
 flutter pub get
 flutter pub run flutter_launcher_icons
-```
-
-This generates icons for **Android, iOS, Windows, and macOS**.
-
----
-
-## Current Working Features
-
-### Video Editor
-- Multi-track timeline (V1 / A1)
-- Play / Pause / Scrub
-- Split at playhead
-- Speed control (0.25x – 4x) with presets
-- Volume control + Mute
-- Color Correction panel
-- Effects & Transitions library
-- Keyframe system
-- Text tools + animations
-- Export button (FFmpeg ready)
-
-### Photo Editor
-- Live preview + zoom
-- Color Correction
-- Effects / Filters
-- Text tools
-- Shared panels with video editor
-
-### Other
-- Templates (12 presets: Reels, TikTok, Shorts, Stories, Cinematic, Food, Fitness, Beauty...)
-- Project Save / Load + Recent list
-- Settings screen
-- Aspect ratio helpers
-- Image filter service (brightness, contrast, saturation, grayscale, sepia, vignette)
-- Multi-platform GitHub Actions builds
-
----
-
-## How to Run
-
-```bash
-git clone https://github.com/jagwazorld-max/ApexCut.git
-cd ApexCut
-flutter pub get
-flutter run
-```
-
-### Build for phone
-
-```bash
-flutter build apk --release --split-per-abi
 ```
 
 ---
