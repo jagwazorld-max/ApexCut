@@ -25,78 +25,24 @@ class TemplatesScreen extends StatelessWidget {
   const TemplatesScreen({super.key});
 
   static final List<TemplateItem> templates = [
-    TemplateItem(
-      id: 'reels',
-      name: 'Instagram Reels',
-      description: '9:16 • Fast cuts • Trending text',
-      aspect: '9:16',
-      icon: Icons.video_library_rounded,
-      color: AppTheme.secondary,
-    ),
-    TemplateItem(
-      id: 'tiktok',
-      name: 'TikTok / Shorts',
-      description: '9:16 • Dynamic transitions • Captions',
-      aspect: '9:16',
-      icon: Icons.music_note_rounded,
-      color: AppTheme.primary,
-    ),
-    TemplateItem(
-      id: 'youtube',
-      name: 'YouTube Shorts',
-      description: '9:16 • Clean intro • End screen',
-      aspect: '9:16',
-      icon: Icons.play_circle_rounded,
-      color: Colors.redAccent,
-    ),
-    TemplateItem(
-      id: 'story',
-      name: 'Stories',
-      description: '9:16 • Quick photo + text',
-      aspect: '9:16',
-      icon: Icons.auto_stories_rounded,
-      color: AppTheme.accent,
-    ),
-    TemplateItem(
-      id: 'square',
-      name: 'Instagram Post',
-      description: '1:1 • Photo focused',
-      aspect: '1:1',
-      icon: Icons.crop_square_rounded,
-      color: Colors.purpleAccent,
-    ),
-    TemplateItem(
-      id: 'cinematic',
-      name: 'Cinematic',
-      description: '16:9 • Color grade • Slow motion',
-      aspect: '16:9',
-      icon: Icons.movie_rounded,
-      color: Colors.amber,
-    ),
-    TemplateItem(
-      id: 'promo',
-      name: 'Promo / Ad',
-      description: '9:16 • Bold text • Call to action',
-      aspect: '9:16',
-      icon: Icons.campaign_rounded,
-      color: Colors.greenAccent,
-    ),
-    TemplateItem(
-      id: 'vlog',
-      name: 'Vlog Intro',
-      description: '16:9 • Lower third • Music',
-      aspect: '16:9',
-      icon: Icons.mic_rounded,
-      color: Colors.lightBlueAccent,
-    ),
+    TemplateItem(id: 'reels', name: 'Instagram Reels', description: '9:16 • Fast cuts • Trending text', aspect: '9:16', icon: Icons.video_library_rounded, color: AppTheme.secondary),
+    TemplateItem(id: 'tiktok', name: 'TikTok / Shorts', description: '9:16 • Dynamic transitions • Captions', aspect: '9:16', icon: Icons.music_note_rounded, color: AppTheme.primary),
+    TemplateItem(id: 'youtube', name: 'YouTube Shorts', description: '9:16 • Clean intro • End screen', aspect: '9:16', icon: Icons.play_circle_rounded, color: Colors.redAccent),
+    TemplateItem(id: 'story', name: 'Stories', description: '9:16 • Quick photo + text', aspect: '9:16', icon: Icons.auto_stories_rounded, color: AppTheme.accent),
+    TemplateItem(id: 'square', name: 'Instagram Post', description: '1:1 • Photo focused', aspect: '1:1', icon: Icons.crop_square_rounded, color: Colors.purpleAccent),
+    TemplateItem(id: 'cinematic', name: 'Cinematic', description: '16:9 • Color grade • Slow motion', aspect: '16:9', icon: Icons.movie_rounded, color: Colors.amber),
+    TemplateItem(id: 'promo', name: 'Promo / Ad', description: '9:16 • Bold text • CTA', aspect: '9:16', icon: Icons.campaign_rounded, color: Colors.greenAccent),
+    TemplateItem(id: 'vlog', name: 'Vlog Intro', description: '16:9 • Lower third • Music', aspect: '16:9', icon: Icons.mic_rounded, color: Colors.lightBlueAccent),
+    TemplateItem(id: 'travel', name: 'Travel', description: '9:16 • Transitions • Map feel', aspect: '9:16', icon: Icons.flight_rounded, color: Colors.tealAccent),
+    TemplateItem(id: 'food', name: 'Food Review', description: '9:16 • Close-ups • Text pop', aspect: '9:16', icon: Icons.restaurant_rounded, color: Colors.orangeAccent),
+    TemplateItem(id: 'fitness', name: 'Fitness', description: '9:16 • High energy • Beat sync', aspect: '9:16', icon: Icons.fitness_center_rounded, color: Colors.deepOrangeAccent),
+    TemplateItem(id: 'beauty', name: 'Beauty', description: '9:16 • Soft filters • Text', aspect: '9:16', icon: Icons.face_retouching_natural, color: Colors.pinkAccent),
   ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Templates'),
-      ),
+      appBar: AppBar(title: const Text('Templates')),
       body: Column(
         children: [
           Padding(
@@ -123,9 +69,7 @@ class TemplatesScreen extends StatelessWidget {
                   onTap: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(
-                        builder: (_) => GalleryScreen(isVideoMode: true),
-                      ),
+                      MaterialPageRoute(builder: (_) => const GalleryScreen(isVideoMode: true)),
                     );
                   },
                   child: Container(
@@ -148,34 +92,14 @@ class TemplatesScreen extends StatelessWidget {
                           child: Icon(t.icon, color: t.color, size: 24),
                         ),
                         const Spacer(),
-                        Text(
-                          t.name,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 14,
-                          ),
-                        ),
+                        Text(t.name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
                         const SizedBox(height: 4),
-                        Text(
-                          t.description,
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: AppTheme.textSecondary,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                        Text(t.description, style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary), maxLines: 2, overflow: TextOverflow.ellipsis),
                         const SizedBox(height: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: AppTheme.surfaceLight,
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            t.aspect,
-                            style: const TextStyle(fontSize: 10, color: AppTheme.primary),
-                          ),
+                          decoration: BoxDecoration(color: AppTheme.surfaceLight, borderRadius: BorderRadius.circular(6)),
+                          child: Text(t.aspect, style: const TextStyle(fontSize: 10, color: AppTheme.primary)),
                         ),
                       ],
                     ),
