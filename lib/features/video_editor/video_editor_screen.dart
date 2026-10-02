@@ -3,6 +3,15 @@ import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/models/clip.dart';
+import '../../shared/models/track.dart';
+import '../../shared/models/effect.dart';
+import '../../shared/models/text_layer.dart';
+import '../../shared/models/keyframe.dart';
+import '../../shared/widgets/timeline/multi_track_timeline.dart';
+import '../color/color_correction_panel.dart';
+import '../effects/effects_panel.dart';
+import '../keyframes/keyframe_panel.dart';
+import '../graphics/text_tools_panel.dart';
 
 class VideoEditorScreen extends StatefulWidget {
   final String initialVideoPath;
@@ -18,7 +27,13 @@ class _VideoEditorScreenState extends State<VideoEditorScreen> {
   bool _isInitialized = false;
   int _selectedTool = 0;
 
-  // Premiere-inspired tool set
+  late MediaClip _mainClip;
+  late List<Track> _tracks;
+  List<TextLayer> _textLayers = [];
+  TextLayer? _selectedTextLayer;
+  Map<String, double> _colorGrade = {};
+  List<Keyframe> _keyframes = [];
+
   final List<_ToolItem> _tools = [
     _ToolItem('Trim', Icons.content_cut_rounded),
     _ToolItem('Effects', Icons.auto_awesome_rounded),
@@ -29,8 +44,6 @@ class _VideoEditorScreenState extends State<VideoEditorScreen> {
     _ToolItem('Keyframes', Icons.timeline_rounded),
     _ToolItem('Transition', Icons.swap_horiz_rounded),
   ];
-
-  late MediaClip _mainClip;
 
   @override
   void initState() {
@@ -49,8 +62,18 @@ class _VideoEditorScreenState extends State<VideoEditorScreen> {
       sourceDuration: duration,
     );
 
+    _tracks = [
+      Track.create(name: 'V1', type: TrackType.video).copyWith(clips: [_mainClip]),
+      Track.create(name: 'A1', type: TrackType.audio),
+    ];
+
     setState(() => _isInitialized = true);
     _controller.play();
+
+    // Listen for position updates to move playhead
+    _controller.addListener(() {
+      if (mounted) setState(() {});
+    });
   }
 
   @override
@@ -70,7 +93,7 @@ class _VideoEditorScreenState extends State<VideoEditorScreen> {
           TextButton(
             onPressed: () {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Export pipeline coming next')),
+                const SnackBar(content: Text('Export pipeline ready for FFmpeg integration')),
               );
             },
             child: const Text(
@@ -96,31 +119,25 @@ class _VideoEditorScreenState extends State<VideoEditorScreen> {
                       child: VideoPlayer(_controller),
                     ),
                   )
-                : const Center(
-                    child: CircularProgressIndicator(color: AppTheme.primary),
-                  ),
+                : const Center(child: CircularProgressIndicator(color: AppTheme.primary)),
           ),
 
-          // Playback bar
+          // Playback controls
           if (_isInitialized)
             Container(
               color: AppTheme.surface,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               child: Row(
                 children: [
                   IconButton(
                     icon: Icon(
-                      _controller.value.isPlaying
-                          ? Icons.pause_rounded
-                          : Icons.play_arrow_rounded,
+                      _controller.value.isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
                       color: Colors.white,
-                      size: 30,
+                      size: 28,
                     ),
                     onPressed: () {
                       setState(() {
-                        _controller.value.isPlaying
-                            ? _controller.pause()
-                            : _controller.play();
+                        _controller.value.isPlaying ? _controller.pause() : _controller.play();
                       });
                     },
                   ),
@@ -138,64 +155,40 @@ class _VideoEditorScreenState extends State<VideoEditorScreen> {
                   const SizedBox(width: 8),
                   Text(
                     '${_format(_controller.value.position)} / ${_format(_controller.value.duration)}',
-                    style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                    style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
                   ),
                 ],
               ),
             ),
 
-          // Timeline area (Premiere-style multi-track placeholder)
-          Container(
-            height: 100,
-            color: AppTheme.surfaceLight,
-            child: Column(
-              children: [
-                // Track labels + clips placeholder
-                Expanded(
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 48,
-                        color: AppTheme.surface,
-                        child: const Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text('V1', style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
-                            SizedBox(height: 8),
-                            Text('A1', style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
-                          ],
-                        ),
-                      ),
-                      Expanded(
-                        child: Container(
-                          margin: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: AppTheme.primary.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: AppTheme.primary.withOpacity(0.5)),
-                          ),
-                          child: Center(
-                            child: Text(
-                              'Clip • ${_format(_mainClip.duration)}',
-                              style: const TextStyle(fontSize: 12, color: AppTheme.primary),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+          // Multi-track timeline
+          if (_isInitialized)
+            SizedBox(
+              height: 120,
+              child: MultiTrackTimeline(
+                tracks: _tracks,
+                totalDuration: _controller.value.duration,
+                currentPosition: _controller.value.position,
+                onSeek: (pos) => _controller.seekTo(pos),
+                onClipSelected: (clip) {
+                  // Future: select clip for editing
+                },
+              ),
             ),
+
+          // Dynamic tool panel
+          SizedBox(
+            height: 200,
+            child: _buildToolPanel(),
           ),
 
-          // Premiere-style tools
+          // Bottom tools bar
           Container(
-            height: 84,
+            height: 78,
             color: AppTheme.surface,
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 4),
               itemCount: _tools.length,
               itemBuilder: (context, index) {
                 final tool = _tools[index];
@@ -203,8 +196,8 @@ class _VideoEditorScreenState extends State<VideoEditorScreen> {
                 return GestureDetector(
                   onTap: () => setState(() => _selectedTool = index),
                   child: Container(
-                    width: 68,
-                    margin: const EdgeInsets.symmetric(horizontal: 3, vertical: 10),
+                    width: 64,
+                    margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 8),
                     decoration: BoxDecoration(
                       color: isSelected ? AppTheme.primary.withOpacity(0.15) : Colors.transparent,
                       borderRadius: BorderRadius.circular(10),
@@ -215,13 +208,13 @@ class _VideoEditorScreenState extends State<VideoEditorScreen> {
                         Icon(
                           tool.icon,
                           color: isSelected ? AppTheme.primary : AppTheme.textSecondary,
-                          size: 22,
+                          size: 20,
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 3),
                         Text(
                           tool.label,
                           style: TextStyle(
-                            fontSize: 10,
+                            fontSize: 9,
                             color: isSelected ? AppTheme.primary : AppTheme.textSecondary,
                             fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                           ),
@@ -236,6 +229,63 @@ class _VideoEditorScreenState extends State<VideoEditorScreen> {
         ],
       ),
     );
+  }
+
+  Widget _buildToolPanel() {
+    switch (_selectedTool) {
+      case 1: // Effects
+        return EffectsPanel(
+          onEffectSelected: (effect) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Applied: ${effect.name}')),
+            );
+          },
+        );
+      case 2: // Color
+        return ColorCorrectionPanel(
+          initialValues: _colorGrade,
+          onChanged: (values) => setState(() => _colorGrade = values),
+        );
+      case 3: // Text
+        return TextToolsPanel(
+          selectedLayer: _selectedTextLayer,
+          onChanged: (layer) {
+            setState(() {
+              _selectedTextLayer = layer;
+              final idx = _textLayers.indexWhere((t) => t.id == layer.id);
+              if (idx >= 0) {
+                _textLayers[idx] = layer;
+              }
+            });
+          },
+          onAddText: () {
+            final newLayer = TextLayer.create(
+              text: 'New Text',
+              startTime: _controller.value.position,
+            );
+            setState(() {
+              _textLayers.add(newLayer);
+              _selectedTextLayer = newLayer;
+            });
+          },
+        );
+      case 6: // Keyframes
+        return KeyframePanel(
+          keyframes: _keyframes,
+          clipDuration: _mainClip.duration,
+          onChanged: (kfs) => setState(() => _keyframes = kfs),
+        );
+      default:
+        return Container(
+          color: AppTheme.surface,
+          child: Center(
+            child: Text(
+              '${_tools[_selectedTool].label} tools',
+              style: const TextStyle(color: AppTheme.textSecondary),
+            ),
+          ),
+        );
+    }
   }
 
   String _format(Duration d) {
