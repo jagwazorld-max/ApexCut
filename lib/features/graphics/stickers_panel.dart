@@ -33,7 +33,7 @@ class StickersPanel extends StatelessWidget {
           const SizedBox(height: 12),
           Expanded(
             child: GridView.builder(
-              gridDelegate: const SligerGridDelegateWithFixedCrossAxisCount(
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 4,
                 crossAxisSpacing: 8,
                 mainAxisSpacing: 8,
