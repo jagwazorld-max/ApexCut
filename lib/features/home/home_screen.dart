@@ -4,6 +4,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/constants/branding.dart';
 import '../../core/services/project_storage.dart';
 import '../gallery/gallery_screen.dart';
+import '../video_editor/video_editor_screen.dart';
 import '../templates/templates_screen.dart';
 import '../canvas/canvas_screen.dart';
 import '../settings/settings_screen.dart';
@@ -83,6 +84,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 icon: Icons.movie_creation_rounded,
                 color: AppTheme.primary,
                 onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const GalleryScreen(isVideoMode: true))),
+              ),
+              const SizedBox(height: 8),
+              _CreateCard(
+                title: 'Voiceover Film',
+                subtitle: 'Start a cinematic cut, then record VO over picture',
+                icon: Icons.record_voice_over_rounded,
+                color: const Color(0xFF6EE7D7),
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const VideoEditorScreen()),
+                ),
               ),
               const SizedBox(height: 8),
               _CreateCard(

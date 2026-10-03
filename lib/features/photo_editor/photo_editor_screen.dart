@@ -10,6 +10,7 @@ import '../../shared/models/text_layer.dart';
 import 'panels/crop_panel.dart';
 import 'panels/cutout_panel.dart';
 import 'panels/replace_panel.dart';
+import '../cinematic/looks.dart';
 
 class PhotoEditorScreen extends StatefulWidget {
   final String imagePath;
@@ -31,6 +32,7 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
   bool _flipH = false;
   bool _flipV = false;
   bool _hasCutout = false;
+  String _lookId = 'teal-orange';
 
   // Simple undo stack
   final List<Map<String, dynamic>> _undoStack = [];
@@ -135,7 +137,10 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
                 child: InteractiveViewer(
                   minScale: 0.5,
                   maxScale: 4.0,
-                  child: Image.file(File(widget.imagePath), fit: BoxFit.contain),
+                  child: ColorFiltered(
+                    colorFilter: CinematicLooks.byId(_lookId).filter,
+                    child: Image.file(File(widget.imagePath), fit: BoxFit.contain),
+                  ),
                 ),
               ),
             ),

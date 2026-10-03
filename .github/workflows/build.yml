@@ -21,8 +21,12 @@ jobs:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
           cache: true
+      - name: Assets and icon
+        run: |
+          mkdir -p assets/icons assets/filters assets/stickers assets/fonts assets/music assets/luts assets/templates
+          python3 scripts/generate_icon.py
       - run: flutter pub get
-      - run: flutter analyze --no-fatal-infos || true
+      - run: flutter analyze --no-fatal-infos --no-fatal-warnings
 
   build-android:
     name: Android APK
@@ -39,21 +43,22 @@ jobs:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
           cache: true
-      - name: Ensure Android platform
+      - name: Scaffold Android
         run: |
-          flutter create --platforms=android . || true
+          mkdir -p assets/icons assets/filters assets/stickers assets/fonts assets/music assets/luts assets/templates
+          python3 scripts/generate_icon.py
+          rm -rf android
+          flutter create --project-name apex_cut --org com.jagx.apexcut --platforms=android .
+          bash scripts/patch_platforms.sh
           flutter pub get
       - name: Build APK
-        run: flutter build apk --release --split-per-abi || flutter build apk --release || true
+        run: flutter build apk --release --split-per-abi
       - uses: actions/upload-artifact@v4
-        if: always()
         with:
           name: android-apks
-          path: |
-            build/app/outputs/flutter-apk/*.apk
-            build/app/outputs/apk/**/*.apk
-          if-no-files-found: ignore
-          retention-days: 14
+          path: build/app/outputs/flutter-apk/*.apk
+          if-no-files-found: error
+          retention-days: 30
 
   build-ios:
     name: iOS
@@ -66,19 +71,28 @@ jobs:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
           cache: true
-      - name: Ensure iOS platform
+      - name: Scaffold iOS
         run: |
-          flutter create --platforms=ios . || true
+          mkdir -p assets/icons assets/filters assets/stickers assets/fonts assets/music assets/luts assets/templates
+          python3 scripts/generate_icon.py
+          rm -rf ios
+          flutter create --project-name apex_cut --org com.jagx.apexcut --platforms=ios .
+          bash scripts/patch_platforms.sh
           flutter pub get
-      - name: Build iOS
-        run: flutter build ios --release --no-codesign || true
+      - name: Build iOS (unsigned)
+        run: flutter build ios --release --no-codesign
+      - name: Package iOS app
+        run: |
+          mkdir -p dist
+          APP=$(find build/ios -name "Runner.app" -type d | head -n 1)
+          if [ -z "$APP" ]; then echo "Runner.app missing"; exit 1; fi
+          ditto -c -k --sequesterRsrc --keepParent "$APP" dist/ApexCut-ios-unsigned.zip
       - uses: actions/upload-artifact@v4
-        if: always()
         with:
           name: ios-build
-          path: build/ios/iphoneos
-          if-no-files-found: ignore
-          retention-days: 7
+          path: dist/ApexCut-ios-unsigned.zip
+          if-no-files-found: error
+          retention-days: 14
 
   build-windows:
     name: Windows
@@ -91,22 +105,28 @@ jobs:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
           cache: true
-      - name: Enable Windows
+      - name: Scaffold Windows
         shell: pwsh
         run: |
+          New-Item -ItemType Directory -Force -Path assets/icons, assets/filters, assets/stickers, assets/fonts, assets/music, assets/luts, assets/templates | Out-Null
+          python scripts/generate_icon.py
+          if (Test-Path windows) { Remove-Item -Recurse -Force windows }
           flutter config --enable-windows-desktop
-          if (-not (Test-Path windows)) { flutter create --platforms=windows . }
+          flutter create --project-name apex_cut --org com.jagx.apexcut --platforms=windows .
           flutter pub get
       - name: Build Windows
         run: flutter build windows --release
-        continue-on-error: true
+      - name: Package Windows
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath dist/ApexCut-windows.zip
       - uses: actions/upload-artifact@v4
-        if: always()
         with:
           name: windows-release
-          path: build/windows/x64/runner/Release
-          if-no-files-found: ignore
-          retention-days: 14
+          path: dist/ApexCut-windows.zip
+          if-no-files-found: error
+          retention-days: 30
 
   build-macos:
     name: macOS
@@ -119,17 +139,62 @@ jobs:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
           cache: true
-      - name: Enable macOS
+      - name: Scaffold macOS
         run: |
+          mkdir -p assets/icons assets/filters assets/stickers assets/fonts assets/music assets/luts assets/templates
+          python3 scripts/generate_icon.py
+          rm -rf macos
           flutter config --enable-macos-desktop
-          if [ ! -d macos ]; then flutter create --platforms=macos .; fi
+          flutter create --project-name apex_cut --org com.jagx.apexcut --platforms=macos .
+          bash scripts/patch_platforms.sh
           flutter pub get
       - name: Build macOS
-        run: flutter build macos --release || true
+        run: flutter build macos --release
+      - name: Package macOS
+        run: |
+          mkdir -p dist
+          APP=$(find build/macos/Build/Products/Release -name "*.app" -maxdepth 1 -type d | head -n 1)
+          if [ -z "$APP" ]; then echo "macOS .app missing"; exit 1; fi
+          ditto -c -k --sequesterRsrc --keepParent "$APP" dist/ApexCut-macos.zip
       - uses: actions/upload-artifact@v4
-        if: always()
         with:
           name: macos-release
-          path: build/macos/Build/Products/Release
-          if-no-files-found: ignore
+          path: dist/ApexCut-macos.zip
+          if-no-files-found: error
           retention-days: 14
+
+  build-linux:
+    name: Linux
+    runs-on: ubuntu-latest
+    needs: analyze
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - name: Linux toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libstdc++-12-dev
+      - name: Scaffold Linux
+        run: |
+          mkdir -p assets/icons assets/filters assets/stickers assets/fonts assets/music assets/luts assets/templates
+          python3 scripts/generate_icon.py
+          rm -rf linux
+          flutter config --enable-linux-desktop
+          flutter create --project-name apex_cut --org com.jagx.apexcut --platforms=linux .
+          flutter pub get
+      - name: Build Linux
+        run: flutter build linux --release
+      - name: Package Linux
+        run: |
+          mkdir -p dist
+          tar -C build/linux/x64/release/bundle -czf dist/ApexCut-linux.tar.gz .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-release
+          path: dist/ApexCut-linux.tar.gz
+          if-no-files-found: error
+          retention-days: 30

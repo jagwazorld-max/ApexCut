@@ -13,86 +13,165 @@ import '../effects/effects_panel.dart';
 import '../keyframes/keyframe_panel.dart';
 import '../graphics/text_tools_panel.dart';
 import '../audio/audio_panel.dart';
+import '../tools/extra_tools.dart';
+import '../cinematic/looks.dart';
+import '../cinematic/looks_panel.dart';
 import 'panels/speed_panel.dart';
 import 'panels/volume_panel.dart';
 
 class VideoEditorScreen extends StatefulWidget {
-  final String initialVideoPath;
+  final String? initialVideoPath;
 
-  const VideoEditorScreen({super.key, required this.initialVideoPath});
+  const VideoEditorScreen({super.key, this.initialVideoPath});
 
   @override
   State<VideoEditorScreen> createState() => _VideoEditorScreenState();
 }
 
-class _VideoEditorScreenState extends State<VideoEditorScreen> {
-  late VideoPlayerController _controller;
+class _VideoEditorScreenState extends State<VideoEditorScreen>
+    with SingleTickerProviderStateMixin {
+  VideoPlayerController? _controller;
   bool _isInitialized = false;
   int _selectedTool = 0;
+  String _lookId = 'teal-orange';
 
   late MediaClip _mainClip;
   late List<Track> _tracks;
   List<TextLayer> _textLayers = [];
   TextLayer? _selectedTextLayer;
-  Map<String, double> _colorGrade = {};
+  Map<String, double> _colorGrade = {
+    'exposure': 0,
+    'contrast': 12,
+    'saturation': 8,
+    'temperature': 0,
+  };
   List<Keyframe> _keyframes = [];
+  final List<String> _voiceoverLog = [];
 
   double _speed = 1.0;
   double _volume = 1.0;
   bool _isMuted = false;
+  bool _safeArea = false;
+  bool _mirrorH = false;
+  double _vignette = 0.4;
 
-  final List<_ToolItem> _tools = [
+  late final AnimationController _demoPulse;
+
+  final List<_ToolItem> _tools = const [
     _ToolItem('Trim', Icons.content_cut_rounded),
+    _ToolItem('Looks', Icons.movie_filter_rounded),
     _ToolItem('Effects', Icons.auto_awesome_rounded),
     _ToolItem('Color', Icons.palette_rounded),
     _ToolItem('Text', Icons.text_fields_rounded),
-    _ToolItem('Audio', Icons.music_note_rounded),
+    _ToolItem('Voice', Icons.mic_rounded),
     _ToolItem('Speed', Icons.speed_rounded),
+    _ToolItem('Volume', Icons.volume_up_rounded),
     _ToolItem('Keyframes', Icons.timeline_rounded),
-    _ToolItem('Transition', Icons.swap_horiz_rounded),
+    _ToolItem('Pro', Icons.handyman_rounded),
   ];
 
   @override
   void initState() {
     super.initState();
+    _demoPulse = AnimationController(vsync: this, duration: const Duration(seconds: 12))
+      ..repeat(reverse: true);
     _initializePlayer();
   }
 
   Future<void> _initializePlayer() async {
-    _controller = VideoPlayerController.file(File(widget.initialVideoPath));
-    await _controller.initialize();
+    final path = widget.initialVideoPath;
+    final duration = path == null ? const Duration(seconds: 24) : Duration.zero;
 
-    final duration = _controller.value.duration;
+    if (path != null) {
+      _controller = VideoPlayerController.file(File(path));
+      await _controller!.initialize();
+    }
+
+    final sourceDuration = _controller?.value.duration ?? duration;
     _mainClip = MediaClip.create(
-      path: widget.initialVideoPath,
+      path: path ?? 'demo://cinematic',
       type: ClipType.video,
-      sourceDuration: duration,
+      sourceDuration: sourceDuration,
     );
 
     _tracks = [
       Track.create(name: 'V1', type: TrackType.video).copyWith(clips: [_mainClip]),
-      Track.create(name: 'A1', type: TrackType.audio),
+      Track.create(name: 'VO', type: TrackType.audio),
+      Track.create(name: 'MX', type: TrackType.audio),
     ];
 
-    setState(() => _isInitialized = true);
-    _controller.play();
-    _controller.addListener(() {
-      if (mounted) setState(() {});
-    });
+    _textLayers = [
+      TextLayer.create(
+        text: path == null ? 'APEXCUT' : 'TITLE',
+        startTime: Duration.zero,
+      ),
+    ];
+    _selectedTextLayer = _textLayers.first;
+
+    if (mounted) {
+      setState(() => _isInitialized = true);
+      _controller?.play();
+      _controller?.addListener(() {
+        if (mounted) setState(() {});
+      });
+    }
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _controller?.dispose();
+    _demoPulse.dispose();
     super.dispose();
   }
 
+  Duration get _position {
+    if (_controller != null) return _controller!.value.position;
+    return Duration(milliseconds: (_demoPulse.value * 24000).round());
+  }
+
+  Duration get _duration {
+    if (_controller != null) return _controller!.value.duration;
+    return const Duration(seconds: 24);
+  }
+
   void _splitClip() {
-    if (!_isInitialized) return;
-    final pos = _controller.value.position;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Split at ${_format(pos)}')),
+      SnackBar(content: Text('Split at ${_format(_position)} — both sides stay on V1')),
     );
+  }
+
+  void _applyProTool(String tool) {
+    setState(() {
+      switch (tool) {
+        case 'Mirror Horizontal':
+          _mirrorH = !_mirrorH;
+          break;
+        case 'Safe Area Guides':
+          _safeArea = !_safeArea;
+          break;
+        case 'Vignette Strength':
+          _vignette = _vignette > 0.5 ? 0.15 : 0.55;
+          break;
+        case 'Duplicate Clip':
+          _tracks[0] = _tracks[0].copyWith(clips: [..._tracks[0].clips, _mainClip]);
+          break;
+        default:
+          break;
+      }
+    });
+  }
+
+  ColorFilter get _liveFilter {
+    final look = CinematicLooks.byId(_lookId);
+    final exposure = (_colorGrade['exposure'] ?? 0) / 100;
+    final contrast = 1 + (_colorGrade['contrast'] ?? 0) / 200;
+    final sat = 1 + (_colorGrade['saturation'] ?? 0) / 200;
+    final m = List<double>.from(look.matrix);
+    // Bake simple grade into the last column / diagonal.
+    m[0] *= contrast * sat * (1 + exposure);
+    m[6] *= contrast * sat * (1 + exposure);
+    m[12] *= contrast * (1 + exposure);
+    return ColorFilter.matrix(m);
   }
 
   @override
@@ -103,7 +182,7 @@ class _VideoEditorScreenState extends State<VideoEditorScreen> {
         backgroundColor: Colors.black,
         title: Column(
           children: [
-            const Text('ApexCut', style: TextStyle(fontSize: 16)),
+            const Text('ApexCut Studio', style: TextStyle(fontSize: 16)),
             Text(Branding.byLine, style: const TextStyle(fontSize: 10, color: AppTheme.textSecondary)),
           ],
         ),
@@ -112,7 +191,11 @@ class _VideoEditorScreenState extends State<VideoEditorScreen> {
           TextButton(
             onPressed: () {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Export ready')),
+                SnackBar(
+                  content: Text(
+                    'Export queued · ${_format(_duration)} · look ${CinematicLooks.byId(_lookId).name} · ${_voiceoverLog.length} VO takes',
+                  ),
+                ),
               );
             },
             child: const Text('Export', style: TextStyle(color: AppTheme.primary, fontWeight: FontWeight.bold)),
@@ -123,106 +206,205 @@ class _VideoEditorScreenState extends State<VideoEditorScreen> {
         children: [
           Expanded(
             flex: 3,
-            child: _isInitialized
-                ? Center(
-                    child: AspectRatio(
-                      aspectRatio: _controller.value.aspectRatio,
-                      child: VideoPlayer(_controller),
-                    ),
-                  )
-                : const Center(child: CircularProgressIndicator(color: AppTheme.primary)),
+            child: _isInitialized ? _buildPreview() : const Center(child: CircularProgressIndicator(color: AppTheme.primary)),
           ),
-
-          if (_isInitialized)
-            Container(
-              color: AppTheme.surface,
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: Icon(
-                      _controller.value.isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                      color: Colors.white,
-                      size: 28,
-                    ),
-                    onPressed: () {
-                      setState(() {
-                        _controller.value.isPlaying ? _controller.pause() : _controller.play();
-                      });
-                    },
-                  ),
-                  Expanded(
-                    child: VideoProgressIndicator(
-                      _controller,
-                      allowScrubbing: true,
-                      colors: const VideoProgressColors(
-                        playedColor: AppTheme.primary,
-                        bufferedColor: Colors.white24,
-                        backgroundColor: Colors.white10,
-                      ),
-                    ),
-                  ),
-                  Text(
-                    '${_format(_controller.value.position)} / ${_format(_controller.value.duration)}',
-                    style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
-                  ),
-                ],
-              ),
-            ),
-
+          if (_isInitialized) _buildTransport(),
           if (_isInitialized)
             SizedBox(
               height: 100,
               child: MultiTrackTimeline(
                 tracks: _tracks,
-                totalDuration: _controller.value.duration,
-                currentPosition: _controller.value.position,
-                onSeek: (pos) => _controller.seekTo(pos),
+                totalDuration: _duration,
+                currentPosition: _position,
+                onSeek: (pos) => _controller?.seekTo(pos),
               ),
             ),
-
           SizedBox(height: 200, child: _buildToolPanel()),
+          _buildToolDock(),
+        ],
+      ),
+    );
+  }
 
-          Container(
-            height: 76,
-            color: AppTheme.surface,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              itemCount: _tools.length,
-              itemBuilder: (context, index) {
-                final tool = _tools[index];
-                final isSelected = _selectedTool == index;
-                return GestureDetector(
-                  onTap: () => setState(() => _selectedTool = index),
-                  child: Container(
-                    width: 62,
-                    margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: isSelected ? AppTheme.primary.withOpacity(0.15) : Colors.transparent,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(tool.icon, color: isSelected ? AppTheme.primary : AppTheme.textSecondary, size: 20),
-                        const SizedBox(height: 3),
-                        Text(
-                          tool.label,
-                          style: TextStyle(
-                            fontSize: 9,
-                            color: isSelected ? AppTheme.primary : AppTheme.textSecondary,
-                            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                          ),
-                        ),
-                      ],
-                    ),
+  Widget _buildPreview() {
+    final look = CinematicLooks.byId(_lookId);
+    Widget picture;
+    if (_controller != null && _controller!.value.isInitialized) {
+      picture = AspectRatio(
+        aspectRatio: _controller!.value.aspectRatio,
+        child: VideoPlayer(_controller!),
+      );
+    } else {
+      picture = AnimatedBuilder(
+        animation: _demoPulse,
+        builder: (context, _) {
+          return AspectRatio(
+            aspectRatio: 16 / 9,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment(-1 + _demoPulse.value, -0.4),
+                  end: Alignment(1 - _demoPulse.value, 0.6),
+                  colors: const [
+                    Color(0xFF14161C),
+                    Color(0xFF2A3340),
+                    Color(0xFF0E2A2A),
+                  ],
+                ),
+              ),
+              child: Center(
+                child: Text(
+                  _textLayers.isEmpty ? 'ApexCut' : _textLayers.first.text,
+                  style: const TextStyle(
+                    fontSize: 42,
+                    letterSpacing: 6,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFFE8EAED),
                   ),
-                );
-              },
+                ),
+              ),
+            ),
+          );
+        },
+      );
+    }
+
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        ColorFiltered(
+          colorFilter: _liveFilter,
+          child: Transform(
+            alignment: Alignment.center,
+            transform: Matrix4.identity()..scale(_mirrorH ? -1.0 : 1.0, 1.0),
+            child: picture,
+          ),
+        ),
+        IgnorePointer(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: RadialGradient(
+                colors: [
+                  Colors.transparent,
+                  Colors.black.withOpacity(look.vignette * _vignette),
+                ],
+                radius: 0.95,
+              ),
+            ),
+            child: const SizedBox.expand(),
+          ),
+        ),
+        if (_safeArea)
+          IgnorePointer(
+            child: Padding(
+              padding: const EdgeInsets.all(28),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  border: Border.all(color: const Color(0x66E8EAED), width: 1),
+                ),
+                child: const SizedBox.expand(),
+              ),
             ),
           ),
+        if (_textLayers.isNotEmpty && _controller != null)
+          Positioned(
+            bottom: 28,
+            child: Text(
+              _textLayers.first.text,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 22,
+                fontWeight: FontWeight.w600,
+                shadows: [Shadow(blurRadius: 8, color: Colors.black)],
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildTransport() {
+    final playing = _controller?.value.isPlaying ?? true;
+    return Container(
+      color: AppTheme.surface,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      child: Row(
+        children: [
+          IconButton(
+            icon: Icon(
+              playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
+              color: Colors.white,
+              size: 28,
+            ),
+            onPressed: () {
+              setState(() {
+                if (_controller == null) return;
+                playing ? _controller!.pause() : _controller!.play();
+              });
+            },
+          ),
+          if (_controller != null)
+            Expanded(
+              child: VideoProgressIndicator(
+                _controller!,
+                allowScrubbing: true,
+                colors: const VideoProgressColors(
+                  playedColor: AppTheme.primary,
+                  bufferedColor: Colors.white24,
+                  backgroundColor: Colors.white10,
+                ),
+              ),
+            )
+          else
+            const Expanded(child: LinearProgressIndicator(color: AppTheme.primary)),
+          const SizedBox(width: 8),
+          Text(
+            '${_format(_position)} / ${_format(_duration)}',
+            style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+          ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildToolDock() {
+    return Container(
+      height: 76,
+      color: AppTheme.surface,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        itemCount: _tools.length,
+        itemBuilder: (context, index) {
+          final tool = _tools[index];
+          final isSelected = _selectedTool == index;
+          return GestureDetector(
+            onTap: () => setState(() => _selectedTool = index),
+            child: Container(
+              width: 62,
+              margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 8),
+              decoration: BoxDecoration(
+                color: isSelected ? AppTheme.primary.withOpacity(0.15) : Colors.transparent,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(tool.icon, color: isSelected ? AppTheme.primary : AppTheme.textSecondary, size: 20),
+                  const SizedBox(height: 3),
+                  Text(
+                    tool.label,
+                    style: TextStyle(
+                      fontSize: 9,
+                      color: isSelected ? AppTheme.primary : AppTheme.textSecondary,
+                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -230,15 +412,23 @@ class _VideoEditorScreenState extends State<VideoEditorScreen> {
   Widget _buildToolPanel() {
     switch (_selectedTool) {
       case 1:
+        return LooksPanel(
+          selectedId: _lookId,
+          onSelected: (look) => setState(() {
+            _lookId = look.id;
+            _vignette = look.vignette;
+          }),
+        );
+      case 2:
         return EffectsPanel(onEffectSelected: (e) {
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Applied: ${e.name}')));
         });
-      case 2:
+      case 3:
         return ColorCorrectionPanel(
           initialValues: _colorGrade,
           onChanged: (v) => setState(() => _colorGrade = v),
         );
-      case 3:
+      case 4:
         return TextToolsPanel(
           selectedLayer: _selectedTextLayer,
           onChanged: (layer) {
@@ -249,26 +439,47 @@ class _VideoEditorScreenState extends State<VideoEditorScreen> {
             });
           },
           onAddText: () {
-            final layer = TextLayer.create(text: 'New Text', startTime: _controller.value.position);
+            final layer = TextLayer.create(text: 'New Text', startTime: _position);
             setState(() {
               _textLayers.add(layer);
               _selectedTextLayer = layer;
             });
           },
         );
-      case 4: // Audio + TTS
-        return const AudioPanel();
       case 5:
+        return const AudioPanel();
+      case 6:
         return SpeedPanel(
           currentSpeed: _speed,
-          onSpeedChanged: (v) => setState(() => _speed = v),
+          onSpeedChanged: (v) {
+            setState(() => _speed = v);
+            _controller?.setPlaybackSpeed(v);
+          },
         );
-      case 6:
+      case 7:
+        return VolumePanel(
+          currentVolume: _volume,
+          isMuted: _isMuted,
+          onVolumeChanged: (v) {
+            setState(() {
+              _volume = v;
+              _isMuted = v <= 0;
+            });
+            _controller?.setVolume(_isMuted ? 0 : v);
+          },
+          onMuteChanged: (m) {
+            setState(() => _isMuted = m);
+            _controller?.setVolume(m ? 0 : _volume);
+          },
+        );
+      case 8:
         return KeyframePanel(
           keyframes: _keyframes,
           clipDuration: _mainClip.duration,
           onChanged: (kfs) => setState(() => _keyframes = kfs),
         );
+      case 9:
+        return ExtraToolsPanel(onTool: _applyProTool);
       default:
         return Container(
           color: AppTheme.surface,
@@ -276,13 +487,13 @@ class _VideoEditorScreenState extends State<VideoEditorScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text('${_tools[_selectedTool].label}', style: const TextStyle(color: AppTheme.textSecondary)),
-                if (_selectedTool == 0)
-                  ElevatedButton.icon(
-                    onPressed: _splitClip,
-                    icon: const Icon(Icons.content_cut, size: 16),
-                    label: const Text('Split at Playhead'),
-                  ),
+                Text(_tools[_selectedTool].label, style: const TextStyle(color: AppTheme.textSecondary)),
+                const SizedBox(height: 8),
+                ElevatedButton.icon(
+                  onPressed: _splitClip,
+                  icon: const Icon(Icons.content_cut, size: 16),
+                  label: const Text('Split at Playhead'),
+                ),
               ],
             ),
           ),
