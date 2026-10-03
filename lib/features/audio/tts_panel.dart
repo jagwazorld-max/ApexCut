@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import '../../core/theme/app_theme.dart';
 
-/// Text-to-Speech panel – write text and generate voiceover in different voices
 class TtsPanel extends StatefulWidget {
   final ValueChanged<String>? onAudioGenerated;
 
@@ -16,19 +15,25 @@ class _TtsPanelState extends State<TtsPanel> {
   final FlutterTts _tts = FlutterTts();
   final TextEditingController _controller = TextEditingController();
   bool _isSpeaking = false;
-  double _rate = 0.5;
-  double _pitch = 1.0;
-  double _volume = 1.0;
   String _selectedVoice = 'Default';
+  String _language = 'en-US';
 
-  final List<String> _voices = [
-    'Default',
-    'Male (Deep)',
-    'Female (Soft)',
-    'Female (Energetic)',
-    'Male (Narrator)',
-    'Child',
-    'Robot',
+  final List<Map<String, String>> _voices = [
+    {'id': 'Default', 'lang': 'en-US', 'pitch': '1.0', 'rate': '0.5'},
+    {'id': 'Male Deep', 'lang': 'en-US', 'pitch': '0.65', 'rate': '0.42'},
+    {'id': 'Male Narrator', 'lang': 'en-US', 'pitch': '0.8', 'rate': '0.4'},
+    {'id': 'Female Soft', 'lang': 'en-US', 'pitch': '1.25', 'rate': '0.45'},
+    {'id': 'Female Energetic', 'lang': 'en-US', 'pitch': '1.4', 'rate': '0.58'},
+    {'id': 'Child', 'lang': 'en-US', 'pitch': '1.7', 'rate': '0.5'},
+    {'id': 'Robot', 'lang': 'en-US', 'pitch': '0.45', 'rate': '0.32'},
+    {'id': 'British', 'lang': 'en-GB', 'pitch': '1.0', 'rate': '0.48'},
+    {'id': 'Australian', 'lang': 'en-AU', 'pitch': '1.05', 'rate': '0.5'},
+    {'id': 'Indian English', 'lang': 'en-IN', 'pitch': '1.1', 'rate': '0.48'},
+    {'id': 'Spanish', 'lang': 'es-ES', 'pitch': '1.0', 'rate': '0.5'},
+    {'id': 'French', 'lang': 'fr-FR', 'pitch': '1.0', 'rate': '0.5'},
+    {'id': 'German', 'lang': 'de-DE', 'pitch': '0.95', 'rate': '0.48'},
+    {'id': 'Portuguese', 'lang': 'pt-BR', 'pitch': '1.05', 'rate': '0.5'},
+    {'id': 'Japanese', 'lang': 'ja-JP', 'pitch': '1.1', 'rate': '0.5'},
   ];
 
   @override
@@ -38,11 +43,7 @@ class _TtsPanelState extends State<TtsPanel> {
   }
 
   Future<void> _initTts() async {
-    await _tts.setLanguage('en-US');
-    await _tts.setSpeechRate(_rate);
-    await _tts.setPitch(_pitch);
-    await _tts.setVolume(_volume);
-
+    await _tts.setLanguage(_language);
     _tts.setStartHandler(() => setState(() => _isSpeaking = true));
     _tts.setCompletionHandler(() => setState(() => _isSpeaking = false));
     _tts.setCancelHandler(() => setState(() => _isSpeaking = false));
@@ -52,37 +53,10 @@ class _TtsPanelState extends State<TtsPanel> {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
 
-    // Simple voice simulation via pitch/rate
-    switch (_selectedVoice) {
-      case 'Male (Deep)':
-        await _tts.setPitch(0.7);
-        await _tts.setSpeechRate(0.4);
-        break;
-      case 'Female (Soft)':
-        await _tts.setPitch(1.3);
-        await _tts.setSpeechRate(0.45);
-        break;
-      case 'Female (Energetic)':
-        await _tts.setPitch(1.4);
-        await _tts.setSpeechRate(0.6);
-        break;
-      case 'Male (Narrator)':
-        await _tts.setPitch(0.85);
-        await _tts.setSpeechRate(0.42);
-        break;
-      case 'Child':
-        await _tts.setPitch(1.6);
-        await _tts.setSpeechRate(0.5);
-        break;
-      case 'Robot':
-        await _tts.setPitch(0.5);
-        await _tts.setSpeechRate(0.35);
-        break;
-      default:
-        await _tts.setPitch(_pitch);
-        await _tts.setSpeechRate(_rate);
-    }
-
+    final voice = _voices.firstWhere((v) => v['id'] == _selectedVoice, orElse: () => _voices.first);
+    await _tts.setLanguage(voice['lang']!);
+    await _tts.setPitch(double.parse(voice['pitch']!));
+    await _tts.setSpeechRate(double.parse(voice['rate']!));
     await _tts.speak(text);
     widget.onAudioGenerated?.call(text);
   }
@@ -107,34 +81,27 @@ class _TtsPanelState extends State<TtsPanel> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Text-to-Speech Voiceover', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-          const SizedBox(height: 4),
-          const Text(
-            'Write text → choose voice → generate natural speech',
-            style: TextStyle(fontSize: 11, color: AppTheme.textSecondary),
-          ),
-          const SizedBox(height: 10),
+          const Text('Text-to-Speech', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+          const SizedBox(height: 8),
           TextField(
             controller: _controller,
-            maxLines: 3,
+            maxLines: 2,
             style: const TextStyle(fontSize: 13),
-            decoration: const InputDecoration(
-              hintText: 'Type what you want the voice to say...',
-              isDense: true,
-            ),
+            decoration: const InputDecoration(hintText: 'Type script for voiceover...', isDense: true),
           ),
-          const SizedBox(height: 10),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 36,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
               children: _voices.map((v) {
-                final selected = _selectedVoice == v;
+                final selected = _selectedVoice == v['id'];
                 return Padding(
                   padding: const EdgeInsets.only(right: 6),
                   child: ChoiceChip(
-                    label: Text(v, style: const TextStyle(fontSize: 11)),
+                    label: Text(v['id']!, style: const TextStyle(fontSize: 11)),
                     selected: selected,
-                    onSelected: (_) => setState(() => _selectedVoice = v),
+                    onSelected: (_) => setState(() => _selectedVoice = v['id']!),
                     selectedColor: AppTheme.primary.withOpacity(0.25),
                   ),
                 );
@@ -148,15 +115,11 @@ class _TtsPanelState extends State<TtsPanel> {
                 child: ElevatedButton.icon(
                   onPressed: _isSpeaking ? null : _speak,
                   icon: Icon(_isSpeaking ? Icons.volume_up : Icons.play_arrow, size: 18),
-                  label: Text(_isSpeaking ? 'Speaking...' : 'Generate & Play'),
+                  label: Text(_isSpeaking ? 'Speaking...' : 'Speak'),
                 ),
               ),
-              const SizedBox(width: 8),
               if (_isSpeaking)
-                IconButton(
-                  onPressed: _stop,
-                  icon: const Icon(Icons.stop_circle, color: AppTheme.secondary),
-                ),
+                IconButton(onPressed: _stop, icon: const Icon(Icons.stop_circle, color: AppTheme.secondary)),
             ],
           ),
         ],
