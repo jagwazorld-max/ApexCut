@@ -52,7 +52,7 @@ class _AudioPanelState extends State<AudioPanel> with SingleTickerProviderStateM
                 MicRecorderPanel(
                   onRecordingSaved: (path) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Recording saved')),
+                      const SnackBar(content: Text('Recording saved')),
                     );
                   },
                 ),
@@ -108,7 +108,7 @@ class _SfxLibrary extends StatelessWidget {
   Widget build(BuildContext context) {
     return GridView.builder(
       padding: const EdgeInsets.all(12),
-      gridDelegate: const SligerGridDelegateWithFixedCrossAxisCount(
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 3,
         crossAxisSpacing: 8,
         mainAxisSpacing: 8,
@@ -134,13 +134,4 @@ class _SfxLibrary extends StatelessWidget {
       },
     );
   }
-}
-
-class SligerGridDelegateWithFixedCrossAxisCount extends SliverGridDelegateWithFixedCrossAxisCount {
-  const SligerGridDelegateWithFixedCrossAxisCount({
-    required super.crossAxisCount,
-    super.mainAxisSpacing = 0,
-    super.crossAxisSpacing = 0,
-    super.childAspectRatio = 1,
-  });
 }
