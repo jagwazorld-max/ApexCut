@@ -5,6 +5,8 @@ import '../../core/constants/branding.dart';
 import '../../core/services/project_storage.dart';
 import '../gallery/gallery_screen.dart';
 import '../templates/templates_screen.dart';
+import '../canvas/canvas_screen.dart';
+import '../settings/settings_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -59,109 +61,69 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       const SizedBox(height: 2),
                       Text(
                         Branding.byLine,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: AppTheme.textSecondary,
-                        ),
+                        style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
                       ),
                     ],
                   ),
                   IconButton(
-                    onPressed: () {},
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const SettingsScreen()),
+                    ),
                     icon: const Icon(Icons.settings_outlined),
                   ),
                 ],
               ),
-              const SizedBox(height: 28),
-
-              Text(
-                'Create New',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-              ),
-              const SizedBox(height: 14),
-
+              const SizedBox(height: 20),
+              Text('Create New', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600)),
+              const SizedBox(height: 12),
               _CreateCard(
                 title: 'New Video Project',
-                subtitle: 'Multi-track • Premiere tools',
+                subtitle: 'Timeline, audio, voiceover, effects',
                 icon: Icons.movie_creation_rounded,
                 color: AppTheme.primary,
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const GalleryScreen(isVideoMode: true)),
-                ),
+                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const GalleryScreen(isVideoMode: true))),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
               _CreateCard(
                 title: 'Edit Photo',
-                subtitle: 'Color • Filters • Text • Effects',
+                subtitle: 'Cutout, replace background, crop, layers',
                 icon: Icons.photo_camera_rounded,
                 color: AppTheme.secondary,
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const GalleryScreen(isVideoMode: false)),
-                ),
+                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const GalleryScreen(isVideoMode: false))),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
+              _CreateCard(
+                title: 'Canvas Studio',
+                subtitle: 'Drag stickers, PiP, paint mask',
+                icon: Icons.gesture_rounded,
+                color: AppTheme.accent,
+                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CanvasScreen())),
+              ),
+              const SizedBox(height: 8),
               _CreateCard(
                 title: 'Templates',
-                subtitle: 'Reels • Shorts • Stories • Ads',
+                subtitle: 'Reels, Shorts, Stories, Ads',
                 icon: Icons.auto_awesome_rounded,
-                color: AppTheme.accent,
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const TemplatesScreen()),
-                ),
+                color: Colors.amber,
+                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TemplatesScreen())),
               ),
-
-              const SizedBox(height: 28),
-              Text(
-                'Recent Projects',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-              ),
-              const SizedBox(height: 10),
-
+              const SizedBox(height: 18),
+              Text('Recent Projects', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+              const SizedBox(height: 8),
               Expanded(
                 child: _loading
                     ? const Center(child: CircularProgressIndicator(color: AppTheme.primary))
                     : _recent.isEmpty
-                        ? Container(
-                            decoration: BoxDecoration(
-                              color: AppTheme.surface,
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: AppTheme.border),
-                            ),
-                            child: const Center(
-                              child: Text(
-                                'No projects yet\nStart creating above',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(color: AppTheme.textSecondary),
-                              ),
-                            ),
-                          )
+                        ? const Center(child: Text('No projects yet', style: TextStyle(color: AppTheme.textSecondary)))
                         : ListView.builder(
                             itemCount: _recent.length,
                             itemBuilder: (context, index) {
                               final p = _recent[index];
                               return ListTile(
                                 contentPadding: EdgeInsets.zero,
-                                leading: Container(
-                                  width: 48,
-                                  height: 48,
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.surfaceLight,
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: const Icon(Icons.movie_outlined, color: AppTheme.primary),
-                                ),
                                 title: Text(p['name'] ?? 'Untitled'),
-                                subtitle: Text(
-                                  p['updatedAt']?.toString().substring(0, 16) ?? '',
-                                  style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
-                                ),
+                                subtitle: Text((p['updatedAt'] ?? '').toString()),
                                 trailing: IconButton(
                                   icon: const Icon(Icons.delete_outline, size: 20),
                                   onPressed: () async {
@@ -205,7 +167,7 @@ class _CreateCard extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(14),
         child: Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14),
             border: Border.all(color: AppTheme.border),
@@ -213,21 +175,17 @@ class _CreateCard extends StatelessWidget {
           child: Row(
             children: [
               Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(icon, color: color, size: 26),
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(color: color.withOpacity(0.15), borderRadius: BorderRadius.circular(12)),
+                child: Icon(icon, color: color, size: 24),
               ),
-              const SizedBox(width: 14),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 2),
                     Text(subtitle, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
                   ],
                 ),
