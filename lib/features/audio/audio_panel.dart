@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
 import 'tts_panel.dart';
+import 'mic_recorder_panel.dart';
 
 class AudioPanel extends StatefulWidget {
   const AudioPanel({super.key});
@@ -15,7 +16,7 @@ class _AudioPanelState extends State<AudioPanel> with SingleTickerProviderStateM
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
   }
 
   @override
@@ -32,11 +33,13 @@ class _AudioPanelState extends State<AudioPanel> with SingleTickerProviderStateM
         children: [
           TabBar(
             controller: _tabController,
+            isScrollable: true,
             labelColor: AppTheme.primary,
             unselectedLabelColor: AppTheme.textSecondary,
             indicatorColor: AppTheme.primary,
             tabs: const [
               Tab(text: 'Voiceover'),
+              Tab(text: 'Mic'),
               Tab(text: 'Music'),
               Tab(text: 'SFX'),
             ],
@@ -46,6 +49,13 @@ class _AudioPanelState extends State<AudioPanel> with SingleTickerProviderStateM
               controller: _tabController,
               children: [
                 const TtsPanel(),
+                MicRecorderPanel(
+                  onRecordingSaved: (path) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Recording saved')),
+                    );
+                  },
+                ),
                 _MusicLibrary(),
                 _SfxLibrary(),
               ],
@@ -58,15 +68,10 @@ class _AudioPanelState extends State<AudioPanel> with SingleTickerProviderStateM
 }
 
 class _MusicLibrary extends StatelessWidget {
-  final tracks = [
-    'Upbeat Pop',
-    'Cinematic Epic',
-    'Lo-fi Chill',
-    'Corporate',
-    'Trap Beat',
-    'Acoustic',
-    'Electronic',
-    'Sad Piano',
+  final tracks = const [
+    'Upbeat Pop', 'Cinematic Epic', 'Lo-fi Chill', 'Corporate',
+    'Trap Beat', 'Acoustic', 'Electronic', 'Sad Piano',
+    'Hip Hop', 'Ambient Space', 'Jazz Soft', 'Rock Energy',
   ];
 
   @override
@@ -93,22 +98,17 @@ class _MusicLibrary extends StatelessWidget {
 }
 
 class _SfxLibrary extends StatelessWidget {
-  final effects = [
-    'Whoosh',
-    'Pop',
-    'Click',
-    'Notification',
-    'Transition',
-    'Impact',
-    'Riser',
-    'Glitch',
+  final effects = const [
+    'Whoosh', 'Pop', 'Click', 'Notification', 'Transition',
+    'Impact', 'Riser', 'Glitch', 'Swoosh', 'Camera Shutter',
+    'Applause', 'Typewriter',
   ];
 
   @override
   Widget build(BuildContext context) {
     return GridView.builder(
       padding: const EdgeInsets.all(12),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+      gridDelegate: const SligerGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 3,
         crossAxisSpacing: 8,
         mainAxisSpacing: 8,
@@ -134,4 +134,13 @@ class _SfxLibrary extends StatelessWidget {
       },
     );
   }
+}
+
+class SligerGridDelegateWithFixedCrossAxisCount extends SliverGridDelegateWithFixedCrossAxisCount {
+  const SligerGridDelegateWithFixedCrossAxisCount({
+    required super.crossAxisCount,
+    super.mainAxisSpacing = 0,
+    super.crossAxisSpacing = 0,
+    super.childAspectRatio = 1,
+  });
 }
