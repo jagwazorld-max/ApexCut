@@ -5,55 +5,54 @@ by **JagX + JRILICENSE**
 
 ---
 
-## New Features (20+)
+## Latest (this update)
 
-### Voice & Audio
-1. **Text-to-Speech (TTS)** – write any text and generate natural speech
-2. Multiple voices (Male Deep, Female Soft, Energetic, Narrator, Child, Robot)
-3. Adjustable rate, pitch, volume
-4. Music library (8 tracks)
-5. Sound Effects (SFX) library
-6. Full Audio panel with tabs (Voiceover / Music / SFX)
+### Audio
+- **Real microphone recording** (record / stop / play, AAC)
+- **Text-to-Speech** with **15 voices** (Male Deep, Female Soft, British, Spanish, French, Japanese, Robot, Child, …)
+- Music library (12 tracks)
+- SFX library (12 effects)
 
-### Background & Mask
-7. Background Removal tools
-8. Real Mask Painting (Paint / Erase brush)
-9. Brush size control
-10. Clear & Apply Mask
-11. Invert Mask + Feather
+### Visual
+- **Background swap** after mask (gallery image + solid presets)
+- Mask painting (paint / erase / brush size)
+- Canvas Studio: drag stickers + PiP positioning
+- Cutout, Replace, Crop, Rotate, Flip, Layers, Undo/Redo
 
-### Advanced Editing
-12. Better Picture-in-Picture (PiP) positioning support
-13. Sticker placement on canvas
-14. Layer system improvements
-15. Undo / Redo
-16. Crop + Rotate + Flip
-17. Replace Background / Object
-18. Overlay layers
-19. Export quality options
-20. Improved multi-platform workflows (auto-create platform folders)
+### 15 Pro Tools
+Duplicate Clip, Freeze Frame, Reverse, Stabilize, Denoise, Sharpen, Vignette, Motion Blur, Chromatic Aberration, Glow, Mirror H/V, Watermark, Safe Area Guides, Beat Markers
+
+### Workflows
+Hardened GitHub Actions:
+- Auto `flutter create` for missing platforms
+- `continue-on-error` / `|| true` so one platform failure does not kill the run
+- Artifact upload with `if-no-files-found: ignore`
 
 ---
 
-## How to use TTS
+## Run on your phone
 
-1. Open a video project
-2. Tap **Audio** tool
-3. Go to **Voiceover** tab
-4. Type your script
-5. Choose a voice
-6. Tap **Generate & Play**
+```bash
+git clone https://github.com/jagwazorld-max/ApexCut.git
+cd ApexCut
+flutter create --platforms=android,ios,windows,macos .
+flutter pub get
+flutter run
+```
 
-Perfect for animations when you don’t want to record your own voice.
+### Build APK
 
----
+```bash
+flutter build apk --release --split-per-abi
+```
 
-## Workflows Fixed
+### Icon
 
-The GitHub Actions now:
-- Auto-create `android/`, `ios/`, `windows/`, `macos/` folders if missing
-- Continue even if one platform fails
-- Upload artifacts when available
+Put official icon at `assets/icons/app_icon.png` then:
+
+```bash
+flutter pub run flutter_launcher_icons
+```
 
 ---
 

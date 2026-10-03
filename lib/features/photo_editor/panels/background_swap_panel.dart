@@ -1,9 +1,7 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../core/theme/app_theme.dart';
 
-/// Swap background after mask / cutout is applied.
 class BackgroundSwapPanel extends StatefulWidget {
   final String? currentBgPath;
   final ValueChanged<String> onBackgroundSelected;
@@ -25,9 +23,9 @@ class BackgroundSwapPanel extends StatefulWidget {
 class _BackgroundSwapPanelState extends State<BackgroundSwapPanel> {
   final _picker = ImagePicker();
 
-  final presets = [
-    {'name': 'Solid Black', 'color': Colors.black},
-    {'name': 'Solid White', 'color': Colors.white},
+  final presets = const [
+    {'name': 'Solid Black', 'color': Color(0xFF000000)},
+    {'name': 'Solid White', 'color': Color(0xFFFFFFFF)},
     {'name': 'Gradient Blue', 'color': Color(0xFF0A84FF)},
     {'name': 'Studio Gray', 'color': Color(0xFF2C2C2E)},
     {'name': 'Green Screen', 'color': Color(0xFF00C853)},
@@ -69,7 +67,7 @@ class _BackgroundSwapPanelState extends State<BackgroundSwapPanel> {
           const SizedBox(height: 8),
           Expanded(
             child: GridView.builder(
-              gridDelegate: const SligerGridDelegateWithFixedCrossAxisCount(
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 3,
                 crossAxisSpacing: 8,
                 mainAxisSpacing: 8,
@@ -78,17 +76,17 @@ class _BackgroundSwapPanelState extends State<BackgroundSwapPanel> {
               itemCount: presets.length,
               itemBuilder: (context, i) {
                 final p = presets[i];
+                final color = p['color'] as Color;
                 return GestureDetector(
                   onTap: () {
-                    // Solid color backgrounds use a sentinel path
-                    widget.onBackgroundSelected('color:${(p['color'] as Color).value}');
+                    widget.onBackgroundSelected('color:${color.value}');
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(content: Text('Background: ${p['name']}')),
                     );
                   },
                   child: Container(
                     decoration: BoxDecoration(
-                      color: p['color'] as Color,
+                      color: color,
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(color: AppTheme.border),
                     ),
@@ -98,7 +96,7 @@ class _BackgroundSwapPanelState extends State<BackgroundSwapPanel> {
                       p['name'] as String,
                       style: TextStyle(
                         fontSize: 9,
-                        color: (p['color'] as Color).computeLuminance() > 0.5 ? Colors.black : Colors.white,
+                        color: color.computeLuminance() > 0.5 ? Colors.black : Colors.white,
                       ),
                       textAlign: TextAlign.center,
                     ),
@@ -115,14 +113,4 @@ class _BackgroundSwapPanelState extends State<BackgroundSwapPanel> {
       ),
     );
   }
-}
-
-// typo guard – real class name below is fixed in next file if needed
-class SligerGridDelegateWithFixedCrossAxisCount extends SliverGridDelegateWithFixedCrossAxisCount {
-  const SligerGridDelegateWithFixedCrossAxisCount({
-    required super.crossAxisCount,
-    super.mainAxisSpacing = 0,
-    super.crossAxisSpacing = 0,
-    super.childAspectRatio = 1,
-  });
 }
