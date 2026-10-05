@@ -26,7 +26,8 @@ class CutoutPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Cutout / Remove Background', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+          const Text('Cutout / Remove Background',
+              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
           const SizedBox(height: 6),
           const Text(
             'Cut around subjects or replace backgrounds',
@@ -38,7 +39,7 @@ class CutoutPanel extends StatelessWidget {
               Expanded(
                 child: ElevatedButton.icon(
                   onPressed: onAutoCutout,
-                  icon: const Icon(Icons.auto_fix_rounded, size: 18),
+                  icon: const Icon(Icons.auto_fix_high_rounded, size: 18),
                   label: const Text('Auto Cutout'),
                 ),
               ),

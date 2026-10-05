@@ -2,10 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
-  // Professional dark theme inspired by Premiere + CapCut
-  static const Color primary = Color(0xFF00D4FF);      // Cyan accent
-  static const Color secondary = Color(0xFFFF3B5C);    // Strong red/pink
-  static const Color accent = Color(0xFF7C4DFF);       // Purple for effects
+  static const Color primary = Color(0xFF00D4FF);
+  static const Color secondary = Color(0xFFFF3B5C);
+  static const Color accent = Color(0xFF7C4DFF);
   static const Color background = Color(0xFF0D0D0D);
   static const Color surface = Color(0xFF1A1A1A);
   static const Color surfaceLight = Color(0xFF252525);
@@ -27,11 +26,9 @@ class AppTheme {
         secondary: secondary,
         tertiary: accent,
         surface: surface,
-        background: background,
         onPrimary: Colors.black,
         onSecondary: Colors.white,
         onSurface: textPrimary,
-        onBackground: textPrimary,
       ),
       textTheme: GoogleFonts.interTextTheme(
         ThemeData.dark().textTheme,
@@ -65,7 +62,7 @@ class AppTheme {
           ),
         ),
       ),
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         color: surface,
         elevation: 0,
         shape: RoundedRectangleBorder(
@@ -77,7 +74,7 @@ class AppTheme {
         activeTrackColor: primary,
         inactiveTrackColor: surfaceLight,
         thumbColor: primary,
-        overlayColor: primary.withOpacity(0.2),
+        overlayColor: primary.withValues(alpha: 0.2),
       ),
     );
   }

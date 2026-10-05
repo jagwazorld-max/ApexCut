@@ -145,6 +145,42 @@ class CinematicLooks {
       ],
       vignette: 0.38,
     ),
+    CinematicLook(
+      id: 'tungsten',
+      name: 'Tungsten',
+      description: 'Warm interior practicals',
+      matrix: <double>[
+        1.18, 0.1, -0.06, 0, 14,
+        0.04, 1.02, -0.02, 0, 4,
+        -0.1, 0.0, 0.78, 0, -12,
+        0, 0, 0, 1, 0,
+      ],
+      vignette: 0.42,
+    ),
+    CinematicLook(
+      id: 'chrome',
+      name: 'Chrome',
+      description: 'Hard fashion contrast',
+      matrix: <double>[
+        1.28, -0.08, -0.04, 0, 4,
+        -0.06, 1.18, -0.02, 0, 0,
+        -0.04, -0.02, 1.22, 0, 6,
+        0, 0, 0, 1, 0,
+      ],
+      vignette: 0.3,
+    ),
+    CinematicLook(
+      id: 'romance',
+      name: 'Romance',
+      description: 'Soft rose wrap',
+      matrix: <double>[
+        1.12, 0.08, 0.04, 0, 16,
+        0.04, 0.98, 0.06, 0, 8,
+        0.02, 0.02, 1.02, 0, 6,
+        0, 0, 0, 1, 0,
+      ],
+      vignette: 0.24,
+    ),
   ];
 
   static CinematicLook byId(String id) =>

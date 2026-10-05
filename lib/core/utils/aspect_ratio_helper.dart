@@ -1,4 +1,4 @@
-import '../shared/models/project.dart';
+import '../../shared/models/project.dart';
 
 class AspectRatioHelper {
   static String label(AspectRatioPreset preset) {

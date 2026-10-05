@@ -1,15 +1,12 @@
 /// ApexCut FFmpeg Service
-/// Enhanced foundation for Premiere-style processing.
-/// Uncomment ffmpeg_kit_flutter in pubspec.yaml to enable real execution.
-
+/// Command builder for Premiere-style processing.
 class FFmpegService {
   static final FFmpegService _instance = FFmpegService._internal();
   factory FFmpegService() => _instance;
   FFmpegService._internal();
 
-  bool get isAvailable => false; // Set to true when ffmpeg_kit is integrated
+  bool get isAvailable => false;
 
-  /// Trim clip using In/Out points
   Future<String?> trim({
     required String input,
     required String output,
@@ -22,19 +19,17 @@ class FFmpegService {
     return _execute(command, output);
   }
 
-  /// Change playback speed (0.25x – 4x)
   Future<String?> changeSpeed({
     required String input,
     required String output,
     required double speed,
   }) async {
-    // setpts for video, atempo for audio (atempo limited to 0.5-2.0, chain if needed)
     final pts = (1 / speed).toStringAsFixed(4);
-    final command = '-i "$input" -filter:v "setpts=$pts*PTS" -filter:a "atempo=$speed" "$output"';
+    final command =
+        '-i "$input" -filter:v "setpts=$pts*PTS" -filter:a "atempo=$speed" "$output"';
     return _execute(command, output);
   }
 
-  /// Apply basic color grade (eq filter)
   Future<String?> applyColorGrade({
     required String input,
     required String output,
@@ -43,13 +38,11 @@ class FFmpegService {
     final brightness = ((grade['exposure'] ?? 0) / 2).clamp(-1.0, 1.0);
     final contrast = 1 + ((grade['contrast'] ?? 0) / 100);
     final saturation = 1 + ((grade['saturation'] ?? 0) / 100);
-
     final command =
         '-i "$input" -vf "eq=brightness=$brightness:contrast=$contrast:saturation=$saturation" -c:a copy "$output"';
     return _execute(command, output);
   }
 
-  /// Apply Gaussian blur
   Future<String?> applyBlur({
     required String input,
     required String output,
@@ -59,7 +52,6 @@ class FFmpegService {
     return _execute(command, output);
   }
 
-  /// Cross dissolve / xfade transition between two clips
   Future<String?> applyTransition({
     required String clipA,
     required String clipB,
@@ -72,7 +64,6 @@ class FFmpegService {
     return _execute(command, output);
   }
 
-  /// Add simple text overlay (drawtext)
   Future<String?> addTextOverlay({
     required String input,
     required String output,
@@ -84,42 +75,46 @@ class FFmpegService {
   }) async {
     final startSec = start.inMilliseconds / 1000.0;
     final endSec = (start + duration).inMilliseconds / 1000.0;
-    final escaped = text.replaceAll(':', '\\:').replaceAll("'", "\\\\'");
-
+    final escaped = text
+        .replaceAll('\\', '\\\\')
+        .replaceAll(':', '\\:')
+        .replaceAll("'", '');
     final command =
-        '-i "$input" -vf "drawtext=text='$escaped':fontsize=$fontSize:fontcolor=$fontColor:x=(w-text_w)/2:y=(h-text_h)/2:enable='between(t,$startSec,$endSec)'" -c:a copy "$output"';
+        '-i "$input" -vf "drawtext=text=\'$escaped\':fontsize=$fontSize:fontcolor=$fontColor:x=(w-text_w)/2:y=(h-text_h)/2:enable=\'between(t,$startSec,$endSec)\'" -c:a copy "$output"';
     return _execute(command, output);
   }
 
-  /// Scale / resize
   Future<String?> scale({
     required String input,
     required String output,
     required int width,
     required int height,
   }) async {
-    final command = '-i "$input" -vf "scale=$width:$height:force_original_aspect_ratio=decrease,pad=$width:$height:(ow-iw)/2:(oh-ih)/2" -c:a copy "$output"';
+    final command =
+        '-i "$input" -vf "scale=$width:$height:force_original_aspect_ratio=decrease,pad=$width:$height:(ow-iw)/2:(oh-ih)/2" -c:a copy "$output"';
     return _execute(command, output);
   }
 
-  /// Full project export placeholder
-  Future<String?> exportProject({
-    required String outputPath,
-    // Project project,
+  Future<String?> mixVoiceover({
+    required String picture,
+    required String voice,
+    required String output,
+    double voiceGain = 1.0,
+    double musicGain = 0.35,
   }) async {
-    // Future: build complex filter_complex from tracks, effects, keyframes, text layers
+    final command =
+        '-i "$picture" -i "$voice" -filter_complex "[1:a]volume=$voiceGain[v];[0:a]volume=$musicGain[m];[m][v]amix=inputs=2:duration=longest[a]" -map 0:v -map "[a]" -c:v copy "$output"';
+    return _execute(command, output);
+  }
+
+  Future<String?> exportProject({required String outputPath}) async {
     return null;
   }
 
   Future<String?> _execute(String command, String outputPath) async {
-    // When ffmpeg_kit_flutter is added:
-    // final session = await FFmpegKit.execute(command);
-    // final returnCode = await session.getReturnCode();
-    // if (ReturnCode.isSuccess(returnCode)) return outputPath;
-    // final logs = await session.getAllLogsAsString();
-    // debugPrint('FFmpeg error: $logs');
-    print('FFmpeg command (ready): $command');
-    return null; // Placeholder until package is enabled
+    // Ready for ffmpeg_kit_flutter: execute `command` and return outputPath.
+    assert(command.isNotEmpty);
+    return null;
   }
 
   String _formatDuration(Duration d) {

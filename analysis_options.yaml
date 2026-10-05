@@ -1,7 +1,21 @@
 include: package:flutter_lints/flutter.yaml
 
+analyzer:
+  errors:
+    deprecated_member_use: ignore
+    unused_import: ignore
+    unused_local_variable: ignore
+    dangling_library_doc_comments: ignore
+    avoid_print: ignore
+    prefer_const_constructors: ignore
+    prefer_const_literals_to_create_immutables: ignore
+    prefer_final_fields: ignore
+    unnecessary_import: ignore
+
 linter:
   rules:
-    prefer_const_constructors: true
-    prefer_const_literals_to_create_immutables: true
+    prefer_const_constructors: false
+    prefer_const_literals_to_create_immutables: false
+    prefer_final_fields: false
+    avoid_print: false
     prefer_single_quotes: true

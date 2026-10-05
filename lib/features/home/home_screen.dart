@@ -93,7 +93,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 color: const Color(0xFF6EE7D7),
                 onTap: () => Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const VideoEditorScreen()),
+                  MaterialPageRoute(builder: (_) => const VideoEditorScreen(preset: 'voiceover')),
+                ),
+              ),
+              const SizedBox(height: 8),
+              _CreateCard(
+                title: 'Music Video',
+                subtitle: 'Beat grid, stage haze, lyric captions over the mix',
+                icon: Icons.library_music_rounded,
+                color: const Color(0xFFFF8A65),
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const VideoEditorScreen(preset: 'music-video')),
                 ),
               ),
               const SizedBox(height: 8),

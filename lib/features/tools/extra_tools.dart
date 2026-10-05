@@ -1,18 +1,18 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
 
-/// Extra working tools panel – 15 practical editor helpers.
 class ExtraToolsPanel extends StatelessWidget {
   final void Function(String tool) onTool;
 
   const ExtraToolsPanel({super.key, required this.onTool});
 
   static const tools = [
+    ('Ken Burns', Icons.motion_photos_on_rounded),
     ('Duplicate Clip', Icons.copy_all_rounded),
     ('Freeze Frame', Icons.pause_circle_outline),
     ('Reverse Clip', Icons.replay),
     ('Stabilize', Icons.videocam),
-    ('Denoise', Icons.noise_control_off),
+    ('Denoise', Icons.graphic_eq),
     ('Sharpen', Icons.details),
     ('Vignette Strength', Icons.vignette),
     ('Motion Blur', Icons.blur_on),

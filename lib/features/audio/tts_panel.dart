@@ -33,7 +33,11 @@ class _TtsPanelState extends State<TtsPanel> {
     {'id': 'French', 'lang': 'fr-FR', 'pitch': '1.0', 'rate': '0.5'},
     {'id': 'German', 'lang': 'de-DE', 'pitch': '0.95', 'rate': '0.48'},
     {'id': 'Portuguese', 'lang': 'pt-BR', 'pitch': '1.05', 'rate': '0.5'},
-    {'id': 'Japanese', 'lang': 'ja-JP', 'pitch': '1.1', 'rate': '0.5'},
+    {'id': 'Italian', 'lang': 'it-IT', 'pitch': '1.0', 'rate': '0.5'},
+    {'id': 'Korean', 'lang': 'ko-KR', 'pitch': '1.05', 'rate': '0.5'},
+    {'id': 'Arabic', 'lang': 'ar-SA', 'pitch': '0.95', 'rate': '0.48'},
+    {'id': 'Whisper', 'lang': 'en-US', 'pitch': '0.9', 'rate': '0.28'},
+    {'id': 'News Anchor', 'lang': 'en-US', 'pitch': '0.88', 'rate': '0.46'},
   ];
 
   @override

@@ -1,6 +1,4 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:video_player/video_player.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/constants/branding.dart';
 import '../../shared/models/clip.dart';
@@ -18,11 +16,17 @@ import '../cinematic/looks.dart';
 import '../cinematic/looks_panel.dart';
 import 'panels/speed_panel.dart';
 import 'panels/volume_panel.dart';
+import 'panels/transitions_panel.dart';
+import 'panels/captions_panel.dart';
+import 'panels/beat_panel.dart';
+import 'dart:io';
+import 'package:video_player/video_player.dart';
 
 class VideoEditorScreen extends StatefulWidget {
   final String? initialVideoPath;
+  final String preset;
 
-  const VideoEditorScreen({super.key, this.initialVideoPath});
+  const VideoEditorScreen({super.key, this.initialVideoPath, this.preset = 'film'});
 
   @override
   State<VideoEditorScreen> createState() => _VideoEditorScreenState();
@@ -54,6 +58,14 @@ class _VideoEditorScreenState extends State<VideoEditorScreen>
   bool _safeArea = false;
   bool _mirrorH = false;
   double _vignette = 0.4;
+  String _transition = 'fade';
+  String _captionScript =
+      'The city never sleeps. Tonight we cut through the rain. Hold the quiet underneath.';
+  double _bpm = 96;
+  int _beatMarkers = 0;
+  bool _kenBurns = true;
+  bool _reverse = false;
+  bool _stabilize = false;
 
   late final AnimationController _demoPulse;
 
@@ -68,11 +80,23 @@ class _VideoEditorScreenState extends State<VideoEditorScreen>
     _ToolItem('Volume', Icons.volume_up_rounded),
     _ToolItem('Keyframes', Icons.timeline_rounded),
     _ToolItem('Pro', Icons.handyman_rounded),
+    _ToolItem('Trans', Icons.animation_rounded),
+    _ToolItem('Caps', Icons.subtitles_rounded),
+    _ToolItem('Beat', Icons.audiotrack_rounded),
   ];
 
   @override
   void initState() {
     super.initState();
+    if (widget.preset == 'music-video') {
+      _lookId = 'night-drive';
+      _bpm = 118;
+      _captionScript = 'One light. One voice. Hold the note until the room forgets the dark.';
+    } else if (widget.preset == 'voiceover') {
+      _lookId = 'arctic';
+      _captionScript =
+          'From the river to the ridge, the land keeps a slower clock. We only visit. The mist stays.';
+    }
     _demoPulse = AnimationController(vsync: this, duration: const Duration(seconds: 12))
       ..repeat(reverse: true);
     _initializePlayer();
@@ -100,11 +124,11 @@ class _VideoEditorScreenState extends State<VideoEditorScreen>
       Track.create(name: 'MX', type: TrackType.audio),
     ];
 
+    final title = widget.preset == 'music-video'
+        ? 'LIVE FROM THE FLOOR'
+        : (path == null ? 'APEXCUT' : 'TITLE');
     _textLayers = [
-      TextLayer.create(
-        text: path == null ? 'APEXCUT' : 'TITLE',
-        startTime: Duration.zero,
-      ),
+      TextLayer.create(text: title, startTime: Duration.zero),
     ];
     _selectedTextLayer = _textLayers.first;
 
@@ -155,10 +179,55 @@ class _VideoEditorScreenState extends State<VideoEditorScreen>
         case 'Duplicate Clip':
           _tracks[0] = _tracks[0].copyWith(clips: [..._tracks[0].clips, _mainClip]);
           break;
+        case 'Ken Burns':
+          _kenBurns = !_kenBurns;
+          break;
+        case 'Reverse Clip':
+          _reverse = !_reverse;
+          break;
+        case 'Stabilize':
+          _stabilize = !_stabilize;
+          break;
+        case 'Beat Markers':
+          _cutToBeat();
+          return;
         default:
           break;
       }
     });
+  }
+
+  void _burnCaptions() {
+    final sentences = _captionScript
+        .split(RegExp(r'[.!?\n]+'))
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty)
+        .toList();
+    if (sentences.isEmpty) return;
+    final slice = _duration.inMilliseconds / sentences.length;
+    setState(() {
+      _textLayers = [
+        for (var i = 0; i < sentences.length; i++)
+          TextLayer.create(
+            text: sentences[i],
+            startTime: Duration(milliseconds: (slice * i).round()),
+            duration: Duration(milliseconds: slice.round().clamp(800, 8000)),
+          ),
+      ];
+      _selectedTextLayer = _textLayers.first;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Laid ${sentences.length} caption cards under the VO')),
+    );
+  }
+
+  void _cutToBeat() {
+    final beatMs = (60000 / _bpm).round();
+    final count = (_duration.inMilliseconds / beatMs).floor().clamp(1, 64);
+    setState(() => _beatMarkers = count);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Cut picture on $count beats at ${_bpm.round()} BPM')),
+    );
   }
 
   ColorFilter get _liveFilter {
@@ -167,7 +236,6 @@ class _VideoEditorScreenState extends State<VideoEditorScreen>
     final contrast = 1 + (_colorGrade['contrast'] ?? 0) / 200;
     final sat = 1 + (_colorGrade['saturation'] ?? 0) / 200;
     final m = List<double>.from(look.matrix);
-    // Bake simple grade into the last column / diagonal.
     m[0] *= contrast * sat * (1 + exposure);
     m[6] *= contrast * sat * (1 + exposure);
     m[12] *= contrast * (1 + exposure);
@@ -193,7 +261,7 @@ class _VideoEditorScreenState extends State<VideoEditorScreen>
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text(
-                    'Export queued · ${_format(_duration)} · look ${CinematicLooks.byId(_lookId).name} · ${_voiceoverLog.length} VO takes',
+                    'Export queued · ${_format(_duration)} · ${CinematicLooks.byId(_lookId).name} · ${_voiceoverLog.length} VO · $_transition · $_beatMarkers beats',
                   ),
                 ),
               );
@@ -238,28 +306,32 @@ class _VideoEditorScreenState extends State<VideoEditorScreen>
       picture = AnimatedBuilder(
         animation: _demoPulse,
         builder: (context, _) {
+          final kb = _kenBurns ? 1.0 + _demoPulse.value * 0.08 : 1.0;
           return AspectRatio(
             aspectRatio: 16 / 9,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment(-1 + _demoPulse.value, -0.4),
-                  end: Alignment(1 - _demoPulse.value, 0.6),
-                  colors: const [
-                    Color(0xFF14161C),
-                    Color(0xFF2A3340),
-                    Color(0xFF0E2A2A),
-                  ],
+            child: Transform.scale(
+              scale: kb,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment(-1 + _demoPulse.value, -0.4),
+                    end: Alignment(1 - _demoPulse.value, 0.6),
+                    colors: const [
+                      Color(0xFF14161C),
+                      Color(0xFF2A3340),
+                      Color(0xFF0E2A2A),
+                    ],
+                  ),
                 ),
-              ),
-              child: Center(
-                child: Text(
-                  _textLayers.isEmpty ? 'ApexCut' : _textLayers.first.text,
-                  style: const TextStyle(
-                    fontSize: 42,
-                    letterSpacing: 6,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFFE8EAED),
+                child: Center(
+                  child: Text(
+                    _textLayers.isEmpty ? 'ApexCut' : _textLayers.first.text,
+                    style: const TextStyle(
+                      fontSize: 42,
+                      letterSpacing: 6,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFFE8EAED),
+                    ),
                   ),
                 ),
               ),
@@ -286,7 +358,7 @@ class _VideoEditorScreenState extends State<VideoEditorScreen>
               gradient: RadialGradient(
                 colors: [
                   Colors.transparent,
-                  Colors.black.withOpacity(look.vignette * _vignette),
+                  Colors.black.withValues(alpha: look.vignette * _vignette),
                 ],
                 radius: 0.95,
               ),
@@ -306,17 +378,29 @@ class _VideoEditorScreenState extends State<VideoEditorScreen>
               ),
             ),
           ),
-        if (_textLayers.isNotEmpty && _controller != null)
+        if (_textLayers.isNotEmpty)
           Positioned(
             bottom: 28,
+            left: 24,
+            right: 24,
             child: Text(
               _textLayers.first.text,
+              textAlign: TextAlign.center,
               style: const TextStyle(
                 color: Colors.white,
-                fontSize: 22,
+                fontSize: 18,
                 fontWeight: FontWeight.w600,
                 shadows: [Shadow(blurRadius: 8, color: Colors.black)],
               ),
+            ),
+          ),
+        if (_beatMarkers > 0)
+          Positioned(
+            top: 12,
+            right: 12,
+            child: Text(
+              '$_beatMarkers beats · ${_bpm.round()} BPM${_stabilize ? ' · STAB' : ''}${_reverse ? ' · REV' : ''}',
+              style: const TextStyle(fontSize: 10, color: Colors.white70),
             ),
           ),
       ],
@@ -384,7 +468,7 @@ class _VideoEditorScreenState extends State<VideoEditorScreen>
               width: 62,
               margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 8),
               decoration: BoxDecoration(
-                color: isSelected ? AppTheme.primary.withOpacity(0.15) : Colors.transparent,
+                color: isSelected ? AppTheme.primary.withValues(alpha: 0.15) : Colors.transparent,
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Column(
@@ -480,6 +564,25 @@ class _VideoEditorScreenState extends State<VideoEditorScreen>
         );
       case 9:
         return ExtraToolsPanel(onTool: _applyProTool);
+      case 10:
+        return TransitionsPanel(
+          selected: _transition,
+          onSelected: (id) => setState(() => _transition = id),
+        );
+      case 11:
+        return CaptionsPanel(
+          script: _captionScript,
+          onScriptChanged: (s) => _captionScript = s,
+          onBurnCaptions: _burnCaptions,
+          captionCount: _textLayers.length,
+        );
+      case 12:
+        return BeatPanel(
+          bpm: _bpm,
+          onBpm: (v) => setState(() => _bpm = v),
+          onCutToBeat: _cutToBeat,
+          markerCount: _beatMarkers,
+        );
       default:
         return Container(
           color: AppTheme.surface,
