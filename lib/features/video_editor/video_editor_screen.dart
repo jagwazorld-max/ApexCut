@@ -1,23 +1,30 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:video_player/video_player.dart';
 import 'package:uuid/uuid.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/constants/branding.dart';
 import '../../core/services/project_storage.dart';
+import '../../core/services/export_service.dart';
 import '../../shared/models/clip.dart';
-import '../../shared/models/track.dart';
 import '../../shared/models/text_layer.dart';
 import '../audio/audio_panel.dart';
 import 'panels/speed_panel.dart';
 import 'panels/volume_panel.dart';
 
-/// CapCut-style video editor with real split / delete / speed / volume / save.
 class VideoEditorScreen extends StatefulWidget {
   final String? initialVideoPath;
+  final List<String>? initialVideoPaths;
   final String preset;
 
-  const VideoEditorScreen({super.key, this.initialVideoPath, this.preset = 'film'});
+  const VideoEditorScreen({
+    super.key,
+    this.initialVideoPath,
+    this.initialVideoPaths,
+    this.preset = 'film',
+  });
 
   @override
   State<VideoEditorScreen> createState() => _VideoEditorScreenState();
@@ -26,9 +33,9 @@ class VideoEditorScreen extends StatefulWidget {
 class _VideoEditorScreenState extends State<VideoEditorScreen> {
   VideoPlayerController? _controller;
   bool _ready = false;
+  bool _exporting = false;
   int _tool = 0;
 
-  // Timeline state — real list of clips
   List<MediaClip> _clips = [];
   int _selectedClipIndex = 0;
   List<TextLayer> _subtitles = [];
@@ -38,10 +45,11 @@ class _VideoEditorScreenState extends State<VideoEditorScreen> {
   double _volume = 1.0;
   bool _muted = false;
   String _filterName = 'None';
+  String _quality = '720P';
 
-  // Undo stack (clip lists)
   final List<List<MediaClip>> _undo = [];
   final List<List<MediaClip>> _redo = [];
+  final _picker = ImagePicker();
 
   final _tools = const [
     ('Edit', Icons.content_cut),
@@ -62,30 +70,66 @@ class _VideoEditorScreenState extends State<VideoEditorScreen> {
     _boot();
   }
 
+  List<String> get _incomingPaths {
+    final list = <String>[];
+    if (widget.initialVideoPaths != null) list.addAll(widget.initialVideoPaths!);
+    if (widget.initialVideoPath != null) list.add(widget.initialVideoPath!);
+    return list.toSet().toList();
+  }
+
   Future<void> _boot() async {
-    final path = widget.initialVideoPath;
-    if (path != null && File(path).existsSync()) {
-      _controller = VideoPlayerController.file(File(path));
-      await _controller!.initialize();
-      final d = _controller!.value.duration;
+    final paths = _incomingPaths;
+    if (paths.isEmpty) {
       _clips = [
-        MediaClip.create(path: path, type: ClipType.video, sourceDuration: d),
+        MediaClip.create(path: 'demo', type: ClipType.video, sourceDuration: const Duration(seconds: 30)),
       ];
-      _controller!.addListener(() {
-        if (mounted) setState(() {});
-      });
-      await _controller!.play();
+      if (mounted) setState(() => _ready = true);
+      return;
+    }
+
+    final built = <MediaClip>[];
+    for (final path in paths) {
+      if (!File(path).existsSync()) continue;
+      Duration d = const Duration(seconds: 5);
+      try {
+        final c = VideoPlayerController.file(File(path));
+        await c.initialize();
+        d = c.value.duration;
+        await c.dispose();
+      } catch (_) {}
+      built.add(MediaClip.create(path: path, type: ClipType.video, sourceDuration: d));
+    }
+
+    if (built.isEmpty) {
+      _clips = [
+        MediaClip.create(path: 'demo', type: ClipType.video, sourceDuration: const Duration(seconds: 30)),
+      ];
     } else {
-      // Demo clip so UI is usable without media
-      _clips = [
-        MediaClip.create(
-          path: 'demo',
-          type: ClipType.video,
-          sourceDuration: const Duration(seconds: 30),
-        ),
-      ];
+      _clips = built;
+      await _loadPlayer(_clips.first.path);
     }
     if (mounted) setState(() => _ready = true);
+  }
+
+  Future<void> _loadPlayer(String path) async {
+    if (path == 'demo' || !File(path).existsSync()) return;
+    await _controller?.dispose();
+    _controller = VideoPlayerController.file(File(path));
+    await _controller!.initialize();
+    _controller!.addListener(() {
+      if (mounted) setState(() {});
+    });
+    await _controller!.setPlaybackSpeed(_speed);
+    await _controller!.setVolume(_muted ? 0 : _volume);
+    await _controller!.play();
+  }
+
+  Future<void> _selectClip(int index) async {
+    setState(() => _selectedClipIndex = index);
+    final clip = _clips[index];
+    if (clip.path != 'demo') {
+      await _loadPlayer(clip.path);
+    }
   }
 
   @override
@@ -95,10 +139,8 @@ class _VideoEditorScreenState extends State<VideoEditorScreen> {
   }
 
   Duration get _pos => _controller?.value.position ?? Duration.zero;
-  Duration get _dur {
-    if (_clips.isEmpty) return Duration.zero;
-    return _clips.fold(Duration.zero, (a, c) => a + c.duration);
-  }
+  Duration get _dur =>
+      _clips.fold(Duration.zero, (a, c) => a + c.duration);
 
   MediaClip? get _selected =>
       _clips.isEmpty ? null : _clips[_selectedClipIndex.clamp(0, _clips.length - 1)];
@@ -126,77 +168,56 @@ class _VideoEditorScreenState extends State<VideoEditorScreen> {
     });
   }
 
-  /// REAL SPLIT at playhead — divides selected clip into two.
+  void _onReorder(int oldIndex, int newIndex) {
+    if (newIndex > oldIndex) newIndex -= 1;
+    if (oldIndex == newIndex) return;
+    _pushUndo();
+    setState(() {
+      final item = _clips.removeAt(oldIndex);
+      _clips.insert(newIndex, item);
+      _selectedClipIndex = newIndex;
+    });
+    _toast('Clips reordered');
+  }
+
   void _splitAtPlayhead() {
     if (_clips.isEmpty || _controller == null) {
       _toast('Import a video first');
       return;
     }
     final pos = _controller!.value.position;
-    if (pos <= Duration.zero || pos >= _dur) {
-      _toast('Move playhead into the clip to split');
+    final clip = _selected!;
+    if (pos <= const Duration(milliseconds: 200) ||
+        pos >= clip.duration - const Duration(milliseconds: 200)) {
+      _toast('Move playhead into the middle of the clip');
       return;
     }
-
-    // Find which clip contains playhead (simple sequential layout)
-    Duration cursor = Duration.zero;
-    int idx = 0;
-    for (var i = 0; i < _clips.length; i++) {
-      final end = cursor + _clips[i].duration;
-      if (pos > cursor && pos < end) {
-        idx = i;
-        break;
-      }
-      cursor = end;
-    }
-
-    final clip = _clips[idx];
-    final local = pos - cursor; // offset inside this clip
-    if (local <= const Duration(milliseconds: 100) ||
-        local >= clip.duration - const Duration(milliseconds: 100)) {
-      _toast('Playhead too close to edge');
-      return;
-    }
-
     _pushUndo();
-
-    final left = clip.copyWith(
-      duration: local,
-    );
+    final left = clip.copyWith(duration: pos);
     final right = MediaClip(
       id: const Uuid().v4(),
       path: clip.path,
       type: clip.type,
-      startTime: clip.startTime + local,
-      duration: clip.duration - local,
-      sourceStart: clip.sourceStart + local,
+      startTime: clip.startTime + pos,
+      duration: clip.duration - pos,
+      sourceStart: clip.sourceStart + pos,
       sourceDuration: clip.sourceDuration,
       volume: clip.volume,
       speed: clip.speed,
-      scale: clip.scale,
-      rotation: clip.rotation,
-      opacity: clip.opacity,
-      filterId: clip.filterId,
-      effects: clip.effects,
-      keyframes: clip.keyframes,
-      colorGrade: clip.colorGrade,
     );
-
     setState(() {
       _clips = [
-        ..._clips.sublist(0, idx),
+        ..._clips.sublist(0, _selectedClipIndex),
         left,
         right,
-        ..._clips.sublist(idx + 1),
+        ..._clips.sublist(_selectedClipIndex + 1),
       ];
-      _selectedClipIndex = idx;
     });
     _toast('Split → ${_clips.length} clips');
   }
 
   void _deleteSelected() {
-    if (_clips.isEmpty) return;
-    if (_clips.length == 1) {
+    if (_clips.length <= 1) {
       _toast('Cannot delete the only clip');
       return;
     }
@@ -205,7 +226,8 @@ class _VideoEditorScreenState extends State<VideoEditorScreen> {
       _clips.removeAt(_selectedClipIndex);
       _selectedClipIndex = _selectedClipIndex.clamp(0, _clips.length - 1);
     });
-    _toast('Clip deleted');
+    _selectClip(_selectedClipIndex);
+    _toast('Deleted');
   }
 
   void _duplicateSelected() {
@@ -226,7 +248,29 @@ class _VideoEditorScreenState extends State<VideoEditorScreen> {
       _clips = [..._clips, copy];
       _selectedClipIndex = _clips.length - 1;
     });
-    _toast('Clip duplicated');
+    _toast('Duplicated');
+  }
+
+  Future<void> _importMore() async {
+    final file = await _picker.pickVideo(source: ImageSource.gallery);
+    if (file == null) return;
+    Duration d = const Duration(seconds: 5);
+    try {
+      final c = VideoPlayerController.file(File(file.path));
+      await c.initialize();
+      d = c.value.duration;
+      await c.dispose();
+    } catch (_) {}
+    _pushUndo();
+    setState(() {
+      _clips = [
+        ..._clips,
+        MediaClip.create(path: file.path, type: ClipType.video, sourceDuration: d),
+      ];
+      _selectedClipIndex = _clips.length - 1;
+    });
+    await _loadPlayer(file.path);
+    _toast('Imported video · ${_clips.length} clips');
   }
 
   Future<void> _saveProject() async {
@@ -241,6 +285,34 @@ class _VideoEditorScreenState extends State<VideoEditorScreen> {
       'updatedAt': DateTime.now().toIso8601String(),
     });
     _toast('Saved: $name');
+  }
+
+  Future<void> _export() async {
+    if (_exporting) return;
+    setState(() => _exporting = true);
+    try {
+      final result = await ExportService().exportTimeline(
+        clips: _clips,
+        speed: _speed,
+        volume: _volume,
+        quality: _quality,
+      );
+      if (!mounted) return;
+      if (result.success && result.path != null) {
+        _toast(result.message);
+        try {
+          await Share.shareXFiles([XFile(result.path!)], text: 'ApexCut by JagX + JRILICENSE');
+        } catch (_) {
+          _toast('Exported to:\n${result.path}');
+        }
+      } else {
+        _toast(result.message);
+      }
+    } catch (e) {
+      _toast('Export error: $e');
+    } finally {
+      if (mounted) setState(() => _exporting = false);
+    }
   }
 
   void _toast(String m) {
@@ -277,7 +349,7 @@ class _VideoEditorScreenState extends State<VideoEditorScreen> {
 
   Widget _topBar() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
       child: Row(
         children: [
           IconButton(
@@ -287,28 +359,36 @@ class _VideoEditorScreenState extends State<VideoEditorScreen> {
           Expanded(
             child: Column(
               children: [
-                const Text('ApexCut', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                const Text('ApexCut', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
                 Text(Branding.byLine, style: const TextStyle(color: Colors.white54, fontSize: 10)),
               ],
             ),
           ),
-          TextButton(
-            onPressed: _doUndo,
-            child: Text('Undo', style: TextStyle(color: _undo.isEmpty ? Colors.white24 : Colors.white70)),
+          DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              value: _quality,
+              dropdownColor: const Color(0xFF1C1C1E),
+              style: const TextStyle(color: Colors.white70, fontSize: 12),
+              items: const [
+                DropdownMenuItem(value: '480P', child: Text('480P')),
+                DropdownMenuItem(value: '720P', child: Text('720P')),
+                DropdownMenuItem(value: '1080P', child: Text('1080P')),
+              ],
+              onChanged: (v) => setState(() => _quality = v ?? '720P'),
+            ),
           ),
-          TextButton(
-            onPressed: _saveProject,
-            child: const Text('Save', style: TextStyle(color: Colors.white70)),
-          ),
+          TextButton(onPressed: _saveProject, child: const Text('Save', style: TextStyle(color: Colors.white70))),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFFF2D55),
               foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 14),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
             ),
-            onPressed: () => _toast('Export ${_fmt(_dur)} · ${_clips.length} clips · $_filterName'),
-            child: const Text('Done'),
+            onPressed: _exporting ? null : _export,
+            child: _exporting
+                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                : const Text('Done'),
           ),
         ],
       ),
@@ -327,11 +407,8 @@ class _VideoEditorScreenState extends State<VideoEditorScreen> {
         ),
       );
     }
-    return Container(
-      color: Colors.black,
-      alignment: Alignment.center,
-      child: const Text('Import a video to start editing',
-          style: TextStyle(color: Colors.white54)),
+    return const Center(
+      child: Text('Import videos to start', style: TextStyle(color: Colors.white54)),
     );
   }
 
@@ -339,7 +416,6 @@ class _VideoEditorScreenState extends State<VideoEditorScreen> {
     final playing = _controller?.value.isPlaying ?? false;
     return Container(
       color: const Color(0xFF121212),
-      padding: const EdgeInsets.symmetric(horizontal: 4),
       child: Row(
         children: [
           IconButton(
@@ -365,10 +441,8 @@ class _VideoEditorScreenState extends State<VideoEditorScreen> {
             )
           else
             const Expanded(child: SizedBox()),
-          Text(
-            '${_fmt(_pos)} / ${_fmt(_dur)}',
-            style: const TextStyle(color: Colors.white54, fontSize: 11),
-          ),
+          Text('${_fmt(_pos)} / ${_fmt(_selected?.duration ?? Duration.zero)}',
+              style: const TextStyle(color: Colors.white54, fontSize: 11)),
           const SizedBox(width: 8),
         ],
       ),
@@ -377,24 +451,27 @@ class _VideoEditorScreenState extends State<VideoEditorScreen> {
 
   Widget _timeline() {
     return Container(
-      height: 110,
+      height: 120,
       color: const Color(0xFF0E0E0E),
-      padding: const EdgeInsets.symmetric(vertical: 8),
       child: Column(
         children: [
-          // Clip strip
-          SizedBox(
-            height: 56,
-            child: ListView.builder(
+          Expanded(
+            child: ReorderableListView.builder(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
               itemCount: _clips.length + 1,
+              onReorder: (oldIndex, newIndex) {
+                if (oldIndex >= _clips.length) return;
+                if (newIndex > _clips.length) newIndex = _clips.length;
+                _onReorder(oldIndex, newIndex);
+              },
               itemBuilder: (context, i) {
                 if (i == _clips.length) {
                   return Padding(
-                    padding: const EdgeInsets.only(left: 6),
+                    key: const ValueKey('add'),
+                    padding: const EdgeInsets.only(left: 4),
                     child: InkWell(
-                      onTap: () => _toast('Pick more media from gallery'),
+                      onTap: _importMore,
                       child: Container(
                         width: 48,
                         decoration: BoxDecoration(
@@ -409,48 +486,48 @@ class _VideoEditorScreenState extends State<VideoEditorScreen> {
                 }
                 final selected = i == _selectedClipIndex;
                 return GestureDetector(
-                  onTap: () => setState(() => _selectedClipIndex = i),
+                  key: ValueKey(_clips[i].id),
+                  onTap: () => _selectClip(i),
                   child: Container(
-                    width: 88,
+                    width: 96,
                     margin: const EdgeInsets.only(right: 6),
                     decoration: BoxDecoration(
-                      color: selected ? const Color(0xFF00D4C8).withOpacity(0.25) : const Color(0xFF1C1C1E),
+                      color: selected ? const Color(0xFF00D4C8).withOpacity(0.2) : const Color(0xFF1C1C1E),
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
                         color: selected ? const Color(0xFF00D4C8) : Colors.white12,
                         width: selected ? 2 : 1,
                       ),
                     ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      'Clip ${i + 1}\n${_fmt(_clips[i].duration)}',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(color: Colors.white, fontSize: 11),
+                    padding: const EdgeInsets.all(6),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text('Clip ${i + 1}', style: const TextStyle(color: Colors.white, fontSize: 11)),
+                        Text(_fmt(_clips[i].duration), style: const TextStyle(color: Colors.white54, fontSize: 10)),
+                        const Icon(Icons.drag_handle, size: 14, color: Colors.white30),
+                      ],
                     ),
                   ),
                 );
               },
             ),
           ),
-          const SizedBox(height: 6),
-          // Audio / subtitle rows
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
             child: Row(
               children: [
                 const Icon(Icons.music_note, size: 14, color: Colors.white38),
-                const SizedBox(width: 6),
+                const SizedBox(width: 4),
                 Expanded(
                   child: Text(
                     _audioLabels.isEmpty ? '+ Add audio' : _audioLabels.join(', '),
-                    style: const TextStyle(color: Colors.white38, fontSize: 12),
+                    style: const TextStyle(color: Colors.white38, fontSize: 11),
                   ),
                 ),
-                const Icon(Icons.subtitles, size: 14, color: Colors.white38),
-                const SizedBox(width: 6),
                 Text(
-                  _subtitles.isEmpty ? '+ Add Subtitle' : '${_subtitles.length} subs',
-                  style: const TextStyle(color: Colors.white38, fontSize: 12),
+                  _subtitles.isEmpty ? '+ Subtitle' : '${_subtitles.length} subs',
+                  style: const TextStyle(color: Colors.white38, fontSize: 11),
                 ),
               ],
             ),
@@ -462,7 +539,7 @@ class _VideoEditorScreenState extends State<VideoEditorScreen> {
 
   Widget _toolBody() {
     switch (_tool) {
-      case 0: // Edit
+      case 0:
         return _editPanel();
       case 1:
         return const AudioPanel();
@@ -476,9 +553,7 @@ class _VideoEditorScreenState extends State<VideoEditorScreen> {
             _controller?.setPlaybackSpeed(v);
             if (_selected != null) {
               _pushUndo();
-              setState(() {
-                _clips[_selectedClipIndex] = _selected!.copyWith(speed: v);
-              });
+              setState(() => _clips[_selectedClipIndex] = _selected!.copyWith(speed: v));
             }
           },
         );
@@ -501,12 +576,7 @@ class _VideoEditorScreenState extends State<VideoEditorScreen> {
       case 5:
         return _filterPanel();
       default:
-        return Center(
-          child: Text(
-            '${_tools[_tool].$1} tools',
-            style: const TextStyle(color: Colors.white54),
-          ),
-        );
+        return Center(child: Text('${_tools[_tool].$1}', style: const TextStyle(color: Colors.white54)));
     }
   }
 
@@ -516,38 +586,40 @@ class _VideoEditorScreenState extends State<VideoEditorScreen> {
       padding: const EdgeInsets.all(12),
       child: Column(
         children: [
-          const Text('Clip tools', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-          const SizedBox(height: 12),
+          const Text('Edit', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 10),
           Wrap(
-            spacing: 10,
-            runSpacing: 10,
+            spacing: 8,
+            runSpacing: 8,
             alignment: WrapAlignment.center,
             children: [
-              _actionChip(Icons.content_cut, 'Split', _splitAtPlayhead),
-              _actionChip(Icons.delete_outline, 'Delete', _deleteSelected),
-              _actionChip(Icons.copy, 'Duplicate', _duplicateSelected),
-              _actionChip(Icons.undo, 'Undo', _doUndo),
-              _actionChip(Icons.redo, 'Redo', _doRedo),
-              _actionChip(Icons.save, 'Save', _saveProject),
+              _chip(Icons.content_cut, 'Split', _splitAtPlayhead),
+              _chip(Icons.delete_outline, 'Delete', _deleteSelected),
+              _chip(Icons.copy, 'Duplicate', _duplicateSelected),
+              _chip(Icons.add, 'Import', _importMore),
+              _chip(Icons.undo, 'Undo', _doUndo),
+              _chip(Icons.redo, 'Redo', _doRedo),
+              _chip(Icons.save, 'Save', _saveProject),
+              _chip(Icons.ios_share, 'Export', _export),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           Text(
-            '${_clips.length} clips · selected #${_selectedClipIndex + 1}\nPlayhead ${_fmt(_pos)} — split divides the clip here',
+            '${_clips.length} clips · long-press & drag to reorder\nSplit cuts the selected clip at the playhead',
             textAlign: TextAlign.center,
-            style: const TextStyle(color: Colors.white38, fontSize: 12),
+            style: const TextStyle(color: Colors.white38, fontSize: 11),
           ),
         ],
       ),
     );
   }
 
-  Widget _actionChip(IconData icon, String label, VoidCallback onTap) {
+  Widget _chip(IconData icon, String label, VoidCallback onTap) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: Container(
-        width: 72,
+        width: 70,
         padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
           color: const Color(0xFF1C1C1E),
@@ -555,9 +627,9 @@ class _VideoEditorScreenState extends State<VideoEditorScreen> {
         ),
         child: Column(
           children: [
-            Icon(icon, color: const Color(0xFF00D4C8), size: 22),
+            Icon(icon, color: const Color(0xFF00D4C8), size: 20),
             const SizedBox(height: 4),
-            Text(label, style: const TextStyle(color: Colors.white, fontSize: 11)),
+            Text(label, style: const TextStyle(color: Colors.white, fontSize: 10)),
           ],
         ),
       ),
@@ -574,24 +646,18 @@ class _VideoEditorScreenState extends State<VideoEditorScreen> {
           TextField(
             controller: ctrl,
             style: const TextStyle(color: Colors.white),
-            decoration: const InputDecoration(
-              hintText: 'Type subtitle…',
-              hintStyle: TextStyle(color: Colors.white38),
-            ),
+            decoration: const InputDecoration(hintText: 'Subtitle text…', hintStyle: TextStyle(color: Colors.white38)),
           ),
           const SizedBox(height: 8),
           ElevatedButton(
             onPressed: () {
               final t = ctrl.text.trim();
               if (t.isEmpty) return;
-              setState(() {
-                _subtitles.add(TextLayer.create(text: t, startTime: _pos));
-              });
+              setState(() => _subtitles.add(TextLayer.create(text: t, startTime: _pos)));
               _toast('Subtitle added');
             },
             child: const Text('Add at playhead'),
           ),
-          Text('${_subtitles.length} subtitles', style: const TextStyle(color: Colors.white38)),
         ],
       ),
     );
@@ -637,9 +703,8 @@ class _VideoEditorScreenState extends State<VideoEditorScreen> {
           final sel = _tool == i;
           return GestureDetector(
             onTap: () => setState(() => _tool = i),
-            child: Container(
+            child: SizedBox(
               width: 64,
-              color: Colors.transparent,
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
