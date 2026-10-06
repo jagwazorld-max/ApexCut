@@ -20,22 +20,35 @@ class ProjectStorage {
     return '${dir.path}/$id.json';
   }
 
-  Future<void> saveProject(Project project) async {
-    final path = await _projectPath(project.id);
-    final map = {
-      'id': project.id,
-      'name': project.name,
-      'type': project.type.name,
-      'aspectRatio': project.aspectRatio.name,
-      'createdAt': project.createdAt.toIso8601String(),
-      'updatedAt': DateTime.now().toIso8601String(),
-      'durationMs': project.duration.inMilliseconds,
-      'musicPath': project.musicPath,
-      'musicVolume': project.musicVolume,
-      'colorGrade': project.colorGrade,
-      'clipCount': project.tracks.fold<int>(0, (sum, t) => sum + t.clips.length),
-    };
-    await File(path).writeAsString(jsonEncode(map));
+  Future<void> saveProject(dynamic project) async {
+    if (project is Project) {
+      final path = await _projectPath(project.id);
+      final map = {
+        'id': project.id,
+        'name': project.name,
+        'type': project.type.name,
+        'aspectRatio': project.aspectRatio.name,
+        'createdAt': project.createdAt.toIso8601String(),
+        'updatedAt': DateTime.now().toIso8601String(),
+        'durationMs': project.duration.inMilliseconds,
+        'musicPath': project.musicPath,
+        'musicVolume': project.musicVolume,
+        'colorGrade': project.colorGrade,
+        'clipCount': project.tracks.fold<int>(0, (sum, t) => sum + t.clips.length),
+      };
+      await File(path).writeAsString(jsonEncode(map));
+      return;
+    }
+    if (project is Map<String, dynamic>) {
+      final id = project['id']?.toString() ?? DateTime.now().millisecondsSinceEpoch.toString();
+      final path = await _projectPath(id);
+      final map = Map<String, dynamic>.from(project);
+      map['id'] = id;
+      map['updatedAt'] = DateTime.now().toIso8601String();
+      await File(path).writeAsString(jsonEncode(map));
+      return;
+    }
+    throw ArgumentError('saveProject expects Project or Map');
   }
 
   Future<List<Map<String, dynamic>>> listProjects() async {
@@ -48,7 +61,11 @@ class ProjectStorage {
         list.add(jsonDecode(content) as Map<String, dynamic>);
       } catch (_) {}
     }
-    list.sort((a, b) => (b['updatedAt'] as String).compareTo(a['updatedAt'] as String));
+    list.sort((a, b) {
+      final ba = (b['updatedAt'] ?? '').toString();
+      final aa = (a['updatedAt'] ?? '').toString();
+      return ba.compareTo(aa);
+    });
     return list;
   }
 
