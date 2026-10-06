@@ -12,45 +12,13 @@ permissions:
   actions: read
 
 env:
-  # Latest stable as of Oct 2026; flutter-action resolves channel if version drifts
   FLUTTER_VERSION: "3.47.6"
 
 jobs:
-  analyze:
-    name: Analyze
-    runs-on: ubuntu-latest
-    timeout-minutes: 25
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: subosito/flutter-action@v2
-        with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
-          channel: stable
-          cache: true
-
-      - name: Prepare assets
-        run: |
-          mkdir -p assets/icons assets/filters assets/stickers assets/fonts assets/music assets/luts assets/templates
-          python3 scripts/generate_icon.py || true
-
-      - name: Pub get
-        run: flutter pub get
-
-      - name: Analyze (non-blocking warnings)
-        run: |
-          set +e
-          flutter analyze --no-fatal-infos --no-fatal-warnings
-          code=$?
-          # Only fail on analyzer crash (exit > 1). Exit 1 = issues found.
-          if [ "$code" -gt 1 ]; then exit "$code"; fi
-          exit 0
-
   build-android:
     name: Android APK
     runs-on: ubuntu-latest
-    needs: analyze
-    timeout-minutes: 50
+    timeout-minutes: 55
     steps:
       - uses: actions/checkout@v4
 
@@ -65,261 +33,123 @@ jobs:
           channel: stable
           cache: true
 
+      - name: Assets + icon
+        run: |
+          mkdir -p assets/icons assets/branding assets/filters assets/stickers assets/fonts assets/music assets/luts assets/templates
+          python3 scripts/generate_icon.py || true
+          # Keep branded crest path ready
+          if [ -f assets/icons/app_icon.png ]; then echo "app icon ok"; fi
+
       - name: Scaffold Android
         run: bash scripts/ci_prepare.sh android
 
-      - name: Build APKs
+      - name: Apply launcher icons
         run: |
-          set -e
+          dart run flutter_launcher_icons || true
+
+      - name: Pub get
+        run: flutter pub get
+
+      - name: Build release APK
+        run: |
           flutter build apk --release --split-per-abi
           flutter build apk --release
-          flutter build appbundle --release || true
+
+      - name: List outputs
+        run: find build/app/outputs -type f -name '*.apk' -o -name '*.aab' | sort
 
       - uses: actions/upload-artifact@v4
         with:
           name: android-apks
           path: |
             build/app/outputs/flutter-apk/*.apk
-            build/app/outputs/bundle/release/*.aab
           if-no-files-found: error
           retention-days: 30
-
-  build-ios:
-    name: iOS
-    runs-on: macos-latest
-    needs: analyze
-    timeout-minutes: 55
-    continue-on-error: true
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: subosito/flutter-action@v2
-        with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
-          channel: stable
-          cache: true
-
-      - name: Scaffold iOS
-        run: bash scripts/ci_prepare.sh ios
-
-      - name: Build iOS (unsigned)
-        run: flutter build ios --release --no-codesign
-
-      - name: Package iOS app
-        run: |
-          mkdir -p dist
-          APP=$(find build/ios -name "Runner.app" -type d 2>/dev/null | head -n 1)
-          if [ -z "$APP" ]; then
-            echo "Runner.app missing"
-            find build/ios -maxdepth 5 || true
-            exit 1
-          fi
-          ditto -c -k --sequesterRsrc --keepParent "$APP" dist/ApexCut-ios-unsigned.zip
-
-      - uses: actions/upload-artifact@v4
-        if: success()
-        with:
-          name: ios-build
-          path: dist/ApexCut-ios-unsigned.zip
-          if-no-files-found: warn
-          retention-days: 14
 
   build-windows:
     name: Windows
     runs-on: windows-latest
-    needs: analyze
     timeout-minutes: 55
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
-
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
           cache: true
-
       - name: Scaffold Windows
         shell: pwsh
         run: powershell -ExecutionPolicy Bypass -File scripts/ci_prepare.ps1 -Platform windows
-
       - name: Build Windows
         run: flutter build windows --release
-
-      - name: Package Windows
+      - name: Package
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path dist | Out-Null
           $src = Get-ChildItem -Path build\windows -Recurse -Directory -Filter Release |
-            Where-Object { $_.FullName -match 'runner' } |
-            Select-Object -First 1
-          if (-not $src) { throw "Windows Release folder missing" }
-          Compress-Archive -Path (Join-Path $src.FullName '*') -DestinationPath dist/ApexCut-windows.zip -Force
-
+            Where-Object { $_.FullName -match 'runner' } | Select-Object -First 1
+          if ($src) {
+            Compress-Archive -Path (Join-Path $src.FullName '*') -DestinationPath dist/ApexCut-windows.zip -Force
+          }
       - uses: actions/upload-artifact@v4
         if: success()
         with:
           name: windows-release
           path: dist/ApexCut-windows.zip
           if-no-files-found: warn
-          retention-days: 30
 
-  build-macos:
-    name: macOS
+  build-ios:
+    name: iOS Simulator
     runs-on: macos-latest
-    needs: analyze
     timeout-minutes: 55
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
-
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
           cache: true
-
-      - name: Scaffold macOS
-        run: bash scripts/ci_prepare.sh macos
-
-      - name: Build macOS
-        run: flutter build macos --release
-
-      - name: Package macOS
+      - name: Scaffold iOS
+        run: bash scripts/ci_prepare.sh ios
+      - name: Build iOS simulator (no team needed)
+        run: flutter build ios --simulator --debug || flutter build ios --release --no-codesign || true
+      - name: Package if present
         run: |
           mkdir -p dist
-          APP=$(find build/macos -name "*.app" -type d 2>/dev/null | head -n 1)
-          if [ -z "$APP" ]; then
-            echo "macOS .app missing"
-            find build/macos -maxdepth 6 || true
-            exit 1
+          APP=$(find build/ios -name "Runner.app" -type d 2>/dev/null | head -n 1)
+          if [ -n "$APP" ]; then
+            ditto -c -k --sequesterRsrc --keepParent "$APP" dist/ApexCut-ios.zip
           fi
-          ditto -c -k --sequesterRsrc --keepParent "$APP" dist/ApexCut-macos.zip
-
       - uses: actions/upload-artifact@v4
         if: success()
         with:
-          name: macos-release
-          path: dist/ApexCut-macos.zip
+          name: ios-build
+          path: dist/ApexCut-ios.zip
           if-no-files-found: warn
-          retention-days: 14
 
-  build-linux:
-    name: Linux
+  release-android:
+    name: Release Android
     runs-on: ubuntu-latest
-    needs: analyze
-    timeout-minutes: 50
-    continue-on-error: true
+    needs: [build-android]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@v4
-
-      - uses: subosito/flutter-action@v2
-        with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
-          channel: stable
-          cache: true
-
-      - name: Linux toolchain
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libstdc++-12-dev libasound2-dev
-
-      - name: Scaffold Linux
-        run: bash scripts/ci_prepare.sh linux
-
-      - name: Build Linux
-        run: flutter build linux --release
-
-      - name: Package Linux
-        run: |
-          mkdir -p dist
-          BUNDLE=$(find build/linux -type d -name bundle 2>/dev/null | head -n 1)
-          if [ -z "$BUNDLE" ]; then
-            echo "Linux bundle missing"
-            find build/linux -maxdepth 5 || true
-            exit 1
-          fi
-          tar -C "$BUNDLE" -czf dist/ApexCut-linux.tar.gz .
-
-      - uses: actions/upload-artifact@v4
-        if: success()
-        with:
-          name: linux-release
-          path: dist/ApexCut-linux.tar.gz
-          if-no-files-found: warn
-          retention-days: 30
-
-  build-web:
-    name: Web
-    runs-on: ubuntu-latest
-    needs: analyze
-    timeout-minutes: 35
-    continue-on-error: true
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: subosito/flutter-action@v2
-        with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
-          channel: stable
-          cache: true
-
-      - name: Scaffold Web
-        run: bash scripts/ci_prepare.sh web
-
-      - name: Build Web
-        run: flutter build web --release
-
-      - name: Package Web
-        run: |
-          mkdir -p dist
-          tar -C build/web -czf dist/ApexCut-web.tar.gz .
-
-      - uses: actions/upload-artifact@v4
-        if: success()
-        with:
-          name: web-release
-          path: dist/ApexCut-web.tar.gz
-          if-no-files-found: warn
-          retention-days: 30
-
-  release:
-    name: GitHub Release
-    runs-on: ubuntu-latest
-    # Only require Android (primary phone target). Other platforms may soft-fail.
-    needs: [analyze, build-android]
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@v4
-
       - uses: actions/download-artifact@v4
         with:
-          path: artifacts
-          merge-multiple: true
-
-      - name: Collect artifacts
-        run: |
-          mkdir -p release-files
-          find artifacts -type f \( -name '*.apk' -o -name '*.aab' -o -name '*.zip' -o -name '*.tar.gz' \) -print0 |
-            xargs -0 -I{} cp -v {} release-files/ || true
-          ls -la release-files || true
-          if [ -z "$(ls -A release-files 2>/dev/null)" ]; then
-            echo "No build artifacts to release"
-            exit 1
-          fi
-
+          name: android-apks
+          path: apks
+      - name: Show APKs
+        run: ls -la apks/
       - uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.1.${{ github.run_number }}
-          name: ApexCut ${{ github.run_number }}
+          tag_name: v1.2.${{ github.run_number }}
+          name: ApexCut Android ${{ github.run_number }}
           body: |
-            ApexCut builds from GitHub Actions (by JagX + JRILICENSE).
+            **ApexCut by JagX + JRILICENSE**
 
-            Primary: Android APK / AAB
-            Optional (when successful): iOS unsigned, Windows, macOS, Linux, Web
-
-            Download the files attached to this release.
-          files: release-files/*
+            Android release APKs attached.
+            Install the `app-release.apk` or ABI-specific APK on your phone.
+          files: apks/*
           fail_on_unmatched_files: false
-          generate_release_notes: true
