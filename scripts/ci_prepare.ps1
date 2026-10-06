@@ -7,7 +7,9 @@ $ErrorActionPreference = "Stop"
 Set-Location (Split-Path -Parent $PSScriptRoot)
 
 New-Item -ItemType Directory -Force -Path assets/icons, assets/filters, assets/stickers, assets/fonts, assets/music, assets/luts, assets/templates | Out-Null
-python scripts/generate_icon.py
+if (Test-Path scripts/generate_icon.py) {
+  try { python scripts/generate_icon.py } catch { Write-Host "icon gen skipped" }
+}
 
 $bak = Join-Path $env:TEMP ("apexcut-lib-" + [guid]::NewGuid().ToString())
 New-Item -ItemType Directory -Force -Path $bak | Out-Null
@@ -16,8 +18,9 @@ Copy-Item -Force pubspec.yaml (Join-Path $bak "pubspec.yaml")
 if (Test-Path analysis_options.yaml) {
   Copy-Item -Force analysis_options.yaml (Join-Path $bak "analysis_options.yaml")
 }
-
-if (Test-Path $Platform) { Remove-Item -Recurse -Force $Platform }
+if (Test-Path assets) {
+  Copy-Item -Recurse -Force assets (Join-Path $bak "assets")
+}
 
 switch ($Platform) {
   "windows" { flutter config --enable-windows-desktop }
@@ -26,13 +29,22 @@ switch ($Platform) {
   "web" { flutter config --enable-web }
 }
 
-flutter create --project-name apex_cut --org com.jagx.apexcut --platforms=$Platform .
+if (-not (Test-Path $Platform)) {
+  flutter create --project-name apex_cut --org com.jagx.apexcut --platforms=$Platform .
+} else {
+  flutter create --project-name apex_cut --org com.jagx.apexcut --platforms=$Platform . | Out-Null
+}
 
 if (Test-Path lib) { Remove-Item -Recurse -Force lib }
 Copy-Item -Recurse -Force (Join-Path $bak "lib") lib
 Copy-Item -Force (Join-Path $bak "pubspec.yaml") pubspec.yaml
 $ao = Join-Path $bak "analysis_options.yaml"
 if (Test-Path $ao) { Copy-Item -Force $ao analysis_options.yaml }
+$as = Join-Path $bak "assets"
+if (Test-Path $as) {
+  if (Test-Path assets) { Remove-Item -Recurse -Force assets }
+  Copy-Item -Recurse -Force $as assets
+}
 
 flutter pub get
 Write-Host "prepared platform=$Platform"
